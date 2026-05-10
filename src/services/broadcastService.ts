@@ -37,11 +37,14 @@ export async function runBroadcast(
     try {
       if (photoFileId) {
         await telegram.sendPhoto(telegramId, photoFileId, {
-          caption: message,
+          caption: message || undefined,
           parse_mode: 'HTML',
         });
-      } else {
+      } else if (message.trim()) {
         await telegram.sendMessage(telegramId, message, { parse_mode: 'HTML' });
+      } else {
+        sentCount++;
+        continue;
       }
       sentCount++;
     } catch (err: any) {

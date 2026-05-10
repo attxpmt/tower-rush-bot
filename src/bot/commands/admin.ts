@@ -129,22 +129,24 @@ function dataKeyboard() {
   ]);
 }
 
+function msgDone(bc: BroadcastSetup): boolean {
+  return bc.message !== undefined && (bc.message.trim().length > 0 || !!bc.photoFileId);
+}
+
 function broadcastText(bc: BroadcastSetup) {
   const catDone = !!bc.category;
-  const msgDone = !!bc.message;
   const timeDone = bc.scheduledAt !== undefined;
-  const allDone = catDone && msgDone && timeDone;
-
-  const catIcon = catDone ? '✅' : '◽';
-  const msgIcon = msgDone ? '✅' : '◽';
-  const timeIcon = timeDone ? '✅' : '◽';
+  const allDone = catDone && msgDone(bc) && timeDone;
 
   let body = `📣 <b>РАССЫЛКА</b>\n\n`;
   if (allDone) {
     const timeStr = bc.scheduledAt === null
       ? 'Сейчас'
       : bc.scheduledAt!.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
-    const preview = bc.message!.length > 60 ? bc.message!.slice(0, 60) + '…' : bc.message!;
+    const rawPreview = bc.photoFileId && !bc.message?.trim()
+      ? '📷 [Фото]'
+      : (bc.message!.length > 60 ? bc.message!.slice(0, 60) + '…' : bc.message!);
+    const preview = rawPreview;
     body += `✅ Все параметры настроены, рассылка готова к запуску!\n\n` +
       `🎯 Аудитория: <b>${categoryLabel(bc.category!)}</b>\n` +
       `💬 Сообщение: <i>${preview}</i>\n` +
@@ -158,14 +160,13 @@ function broadcastText(bc: BroadcastSetup) {
 
 function broadcastKeyboard(bc: BroadcastSetup) {
   const catDone = !!bc.category;
-  const msgDone = !!bc.message;
   const timeDone = bc.scheduledAt !== undefined;
-  const allDone = catDone && msgDone && timeDone;
+  const allDone = catDone && msgDone(bc) && timeDone;
 
   return Markup.inlineKeyboard([
     [
       Markup.button.callback(`${catDone ? '✅' : '◽'} Категория`, 'admin:bc:category'),
-      Markup.button.callback(`${msgDone ? '✅' : '◽'} Сообщение`, 'admin:bc:message'),
+      Markup.button.callback(`${msgDone(bc) ? '✅' : '◽'} Сообщение`, 'admin:bc:message'),
       Markup.button.callback(`${timeDone ? '✅' : '◽'} Время`, 'admin:bc:schedule'),
     ],
     [Markup.button.callback(allDone ? '🚀 Запустить' : '⚪ Запустить (настрой всё)', 'admin:bc:send')],
@@ -393,7 +394,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
   bot.action('admin:bc:send', async (ctx) => {
     if (!isAdmin(ctx)) return ctx.answerCbQuery('Нет доступа');
     const bc = bcSetup(ctx);
-    if (!bc.category || !bc.message || bc.scheduledAt === undefined) {
+    if (!bc.category || !msgDone(bc) || bc.scheduledAt === undefined) {
       return ctx.answerCbQuery('⚠️ Настрой все параметры перед запуском', { show_alert: true });
     }
     await ctx.answerCbQuery();
@@ -402,7 +403,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
     if (bc.scheduledAt !== null) {
       await scheduleBroadcast({
         category: bc.category,
-        message: bc.message,
+        message: bc.message ?? '',
         photoFileId: bc.photoFileId,
         scheduledAt: bc.scheduledAt,
         adminId: BigInt(ctx.from!.id),
@@ -422,7 +423,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
 
     // Send now
     const category = bc.category;
-    const message = bc.message;
+    const message = bc.message ?? '';
     const photoFileId = bc.photoFileId;
     s(ctx).broadcastSetup = null;
 

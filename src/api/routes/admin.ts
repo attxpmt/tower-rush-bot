@@ -23,6 +23,7 @@ const settingsSchema = z.object({
   channelUrl: z.string().optional(),
   promoCode: z.string().max(50).optional(),
   botName: z.string().min(1).max(100).optional(),
+  supportContact: z.string().max(100).optional(),
 });
 
 router.patch('/settings', async (req: Request, res: Response) => {
