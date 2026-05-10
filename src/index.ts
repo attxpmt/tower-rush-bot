@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import express from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
@@ -42,11 +42,24 @@ async function bootstrap() {
   if (cfg.isProduction && cfg.webhookUrl) {
     try {
       await bot.telegram.setWebhook(cfg.webhookUrl, {
-        secret_token: cfg.webhookSecret,
+        secret_token: cfg.webhookSecret || undefined,
       });
-      app.use(
-        bot.webhookCallback('/bot-webhook', { secretToken: cfg.webhookSecret })
-      );
+
+      // Explicit POST route is more reliable than app.use(webhookCallback)
+      app.post('/bot-webhook', (req: Request, res: Response) => {
+        if (cfg.webhookSecret) {
+          const header = req.headers['x-telegram-bot-api-secret-token'];
+          if (header !== cfg.webhookSecret) {
+            res.sendStatus(403);
+            return;
+          }
+        }
+        bot.handleUpdate(req.body, res).catch((e) => {
+          console.error('[webhook] handleUpdate error:', e);
+          if (!res.headersSent) res.sendStatus(500);
+        });
+      });
+
       console.log('Bot running in webhook mode:', cfg.webhookUrl);
     } catch (err) {
       console.error('Webhook setup failed, falling back to long-polling:', err);

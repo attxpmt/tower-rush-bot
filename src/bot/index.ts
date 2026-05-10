@@ -12,6 +12,12 @@ export function createBot() {
 
   bot.use(session());
 
+  // Global error handler — prevents silent failures
+  bot.catch((err: any, ctx) => {
+    console.error('[bot:error]', err?.message ?? err, 'update_id:', ctx.update.update_id);
+    ctx.reply('Произошла ошибка. Попробуй позже.').catch(() => {});
+  });
+
   bot.command('start', handleStart);
   bot.command('help', handleHelp);
   bot.command('admin', handleAdmin);
