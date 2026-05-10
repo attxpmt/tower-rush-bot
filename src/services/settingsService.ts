@@ -13,6 +13,7 @@ export async function updateSettings(data: {
   channelUrl?: string;
   promoCode?: string;
   botName?: string;
+  supportContact?: string;
 }) {
   return prisma.settings.upsert({
     where: { id: 1 },

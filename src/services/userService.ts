@@ -1,6 +1,9 @@
 import { Status } from '@prisma/client';
 import prisma from '../prisma';
 
+export type StatsPeriod = 'all' | 'day' | 'week' | 'month';
+export type BroadcastCategory = 'new' | 'registered' | 'deposited';
+
 export async function getOrCreateUser(telegramId: number) {
   return prisma.user.upsert({
     where: { telegramId: BigInt(telegramId) },
@@ -71,24 +74,128 @@ export async function updateUserFromPostback(
   return null;
 }
 
+function periodSince(period: StatsPeriod): Date | undefined {
+  if (period === 'all') return undefined;
+  const ms = { day: 86400000, week: 604800000, month: 2592000000 }[period];
+  return new Date(Date.now() - ms);
+}
+
 export async function getAdminStats() {
-  const [totalUsers, registered, deposited, signalsCount, activeToday] = await Promise.all([
+  return getAdminStatsWithPeriod('all');
+}
+
+export async function getAdminStatsWithPeriod(period: StatsPeriod) {
+  const since = periodSince(period);
+  const createdFilter = since ? { createdAt: { gte: since } } : {};
+
+  const [
+    totalUsers,
+    periodUsers,
+    registeredTotal,
+    depositedTotal,
+    vipTotal,
+    blockedTotal,
+    periodRegistrations,
+    periodDeposits,
+    depositAgg,
+    signalsCount,
+    activeUsers,
+  ] = await Promise.all([
     prisma.user.count(),
+    since ? prisma.user.count({ where: { createdAt: { gte: since } } }) : prisma.user.count(),
     prisma.user.count({ where: { status: { in: ['REGISTERED', 'DEPOSITED', 'VIP'] } } }),
     prisma.user.count({ where: { hasDeposit: true } }),
-    prisma.signal.count(),
+    prisma.user.count({ where: { status: 'VIP' } }),
+    prisma.user.count({ where: { blockedAt: { not: null } } }),
+    prisma.postback.count({ where: { eventType: 'registration', ...createdFilter } }),
+    prisma.postback.count({ where: { eventType: 'deposit', ...createdFilter } }),
+    prisma.postback.aggregate({
+      where: { eventType: 'deposit', ...createdFilter },
+      _sum: { amount: true },
+    }),
+    prisma.signal.count({ where: createdFilter }),
     prisma.user.count({
       where: {
         signals: {
           some: {
-            createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+            createdAt: { gte: new Date(Date.now() - 86400000) },
           },
         },
       },
     }),
   ]);
 
-  const conversionRate = totalUsers > 0 ? ((registered / totalUsers) * 100).toFixed(1) : '0';
+  const base = period === 'all' ? totalUsers : periodUsers;
+  const registrations = period === 'all' ? registeredTotal : periodRegistrations;
+  const deposits = period === 'all' ? depositedTotal : periodDeposits;
 
-  return { totalUsers, registered, deposited, signalsCount, activeToday, conversionRate };
+  const visit2reg = base > 0 ? ((registrations / base) * 100).toFixed(1) : '0';
+  const reg2dep = registrations > 0 ? ((deposits / registrations) * 100).toFixed(1) : '0';
+  const totalDepositAmount = depositAgg._sum.amount
+    ? Number(depositAgg._sum.amount).toFixed(2)
+    : '0.00';
+
+  return {
+    period,
+    totalUsers,
+    periodUsers,
+    registeredTotal,
+    depositedTotal,
+    vipTotal,
+    blockedTotal,
+    registrations,
+    deposits,
+    totalDepositAmount,
+    signalsCount,
+    activeUsers,
+    visit2reg,
+    reg2dep,
+    conversionRate: visit2reg,
+  };
+}
+
+export async function markUserBlocked(telegramId: bigint) {
+  try {
+    await prisma.user.update({
+      where: { telegramId },
+      data: { blockedAt: new Date() },
+    });
+  } catch (_) {}
+}
+
+export async function getUsersByCategory(category: BroadcastCategory) {
+  if (category === 'new') {
+    return prisma.user.findMany({
+      where: { status: 'NEW', blockedAt: null },
+      select: { telegramId: true },
+    });
+  }
+  if (category === 'registered') {
+    return prisma.user.findMany({
+      where: { status: 'REGISTERED', blockedAt: null },
+      select: { telegramId: true },
+    });
+  }
+  return prisma.user.findMany({
+    where: { hasDeposit: true, blockedAt: null },
+    select: { telegramId: true },
+  });
+}
+
+export async function getAllUsersForExport() {
+  return prisma.user.findMany({
+    select: {
+      id: true,
+      telegramId: true,
+      onewinId: true,
+      status: true,
+      hasDeposit: true,
+      totalDeposit: true,
+      depositCount: true,
+      signalsUsed: true,
+      blockedAt: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
 }

@@ -3,6 +3,9 @@ import { cfg } from '../config';
 import { handleStart } from './commands/start';
 import { handleHelp } from './commands/help';
 import { handleAdmin, registerAdminCallbacks, sendAdminNotification } from './commands/admin';
+import { startBroadcastScheduler } from '../services/broadcastService';
+
+export { sendAdminNotification };
 
 export function createBot() {
   const bot = new Telegraf(cfg.botToken);
@@ -14,6 +17,8 @@ export function createBot() {
   bot.command('admin', handleAdmin);
 
   registerAdminCallbacks(bot);
+
+  startBroadcastScheduler(bot);
 
   // Listen for postback events emitted by webhook handler
   process.on('postback' as any, async ({ user, eventType, amount }: any) => {
@@ -34,7 +39,6 @@ export function createBot() {
         `Всего депозитов: ${user.depositCount}`
       );
 
-      // Notify the user
       try {
         await bot.telegram.sendMessage(
           user.telegramId.toString(),
