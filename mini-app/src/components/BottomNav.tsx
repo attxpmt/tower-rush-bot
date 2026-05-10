@@ -24,7 +24,7 @@ export default function BottomNav({ active, onTabChange, status }: Props) {
   return (
     <nav style={navStyle}>
       {tabs.map((tab) => {
-        const locked = tab.requiresDeposit && !isUnlocked;
+        const locked = !!tab.requiresDeposit && !isUnlocked;
         const isActive = active === tab.id;
         return (
           <button
