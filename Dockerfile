@@ -30,4 +30,4 @@ COPY --from=mini-builder /app/mini-app/dist ./mini-app/dist
 # Railway sets PORT dynamically
 EXPOSE ${PORT:-3000}
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/index.js"]
