@@ -46,7 +46,7 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const updatedUser = await updateUserFromPostback(onewinId, eventType, parsedAmount);
     if (updatedUser) {
-      process.emit('postback' as any, { user: updatedUser, eventType, amount: parsedAmount });
+      (process.emit as any)('postback', { user: updatedUser, eventType, amount: parsedAmount });
     }
   } catch (_) {
     // User hasn't linked their ID yet — postback saved, will be applied on linkOnewinId
