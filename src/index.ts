@@ -3,6 +3,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
+import { spawn } from 'child_process';
 import { cfg } from './config';
 import apiRouter from './api';
 import postbackRouter from './postback';
@@ -26,18 +27,53 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(miniAppDist, 'index.html'));
 });
 
+function pushDbSchema(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const bin = path.join(__dirname, '..', 'node_modules', '.bin', 'prisma');
+    const proc = spawn(bin, ['db', 'push', '--accept-data-loss', '--skip-generate'], {
+      stdio: 'inherit',
+    });
+    proc.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`prisma db push exited with code ${code}`));
+    });
+    proc.on('error', reject);
+  });
+}
+
+async function applyDbSchema(): Promise<void> {
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      console.log(`[startup] prisma db push (attempt ${attempt}/5)...`);
+      await pushDbSchema();
+      console.log('[startup] DB schema ready');
+      return;
+    } catch (err) {
+      if (attempt === 5) {
+        console.error('[startup] prisma db push failed after 5 attempts');
+        throw err;
+      }
+      console.error(`[startup] attempt ${attempt} failed, retrying in 5s...`);
+      await new Promise(r => setTimeout(r, 5000));
+    }
+  }
+}
+
 async function bootstrap() {
-  await prisma.$connect();
-
-  const bot = createBot();
-
-  // Start listening first so healthcheck passes immediately
+  // Start HTTP server first — health check passes immediately
   await new Promise<void>((resolve) => {
     app.listen(cfg.port, () => {
       console.log(`Server running on port ${cfg.port}`);
       resolve();
     });
   });
+
+  // Apply DB schema with retries (non-blocking for HTTP server)
+  await applyDbSchema();
+
+  await prisma.$connect();
+
+  const bot = createBot();
 
   if (cfg.isProduction && cfg.webhookUrl) {
     try {
