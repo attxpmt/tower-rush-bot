@@ -1,0 +1,6 @@
+node_modules/
+dist/
+mini-app/node_modules/
+mini-app/dist/
+.env
+*.log

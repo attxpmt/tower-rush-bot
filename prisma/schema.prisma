@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  telegramId   BigInt   @unique
+  onewinId     String?  @unique
+  status       Status   @default(NEW)
+  hasDeposit   Boolean  @default(false)
+  totalDeposit Decimal  @default(0) @db.Decimal(12, 2)
+  depositCount Int      @default(0)
+  signalsUsed  Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  signals      Signal[]
+}
+
+model Postback {
+  id        Int      @id @default(autoincrement())
+  eventType String
+  onewinId  String
+  amount    Decimal? @db.Decimal(12, 2)
+  raw       Json
+  createdAt DateTime @default(now())
+
+  @@index([onewinId])
+}
+
+model Signal {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  strategy    Strategy
+  dominoes    Int
+  coefficient Decimal  @db.Decimal(5, 2)
+  riskLevel   RiskLevel
+  betAmount   Decimal  @db.Decimal(12, 2)
+  result      String?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Settings {
+  id          Int    @id @default(1)
+  referralUrl String @default("")
+  channelUrl  String @default("")
+  promoCode   String @default("")
+  botName     String @default("Tower Rush")
+}
+
+enum Status {
+  NEW
+  REGISTERED
+  DEPOSITED
+  VIP
+}
+
+enum Strategy {
+  stable
+  moderate
+  aggressive
+}
+
+enum RiskLevel {
+  low
+  medium
+  high
+}
