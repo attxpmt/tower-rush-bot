@@ -41,35 +41,11 @@ function pushDbSchema(): Promise<void> {
   });
 }
 
-async function applyDbSchema(): Promise<void> {
-  for (let attempt = 1; attempt <= 5; attempt++) {
-    try {
-      console.log(`[startup] prisma db push (attempt ${attempt}/5)...`);
-      await pushDbSchema();
-      console.log('[startup] DB schema ready');
-      return;
-    } catch (err) {
-      if (attempt === 5) {
-        console.error('[startup] prisma db push failed after 5 attempts');
-        throw err;
-      }
-      console.error(`[startup] attempt ${attempt} failed, retrying in 5s...`);
-      await new Promise(r => setTimeout(r, 5000));
-    }
-  }
-}
-
-async function bootstrap() {
-  // Start HTTP server first — health check passes immediately
-  await new Promise<void>((resolve) => {
-    app.listen(cfg.port, () => {
-      console.log(`Server running on port ${cfg.port}`);
-      resolve();
-    });
-  });
-
-  // Apply DB schema with retries (non-blocking for HTTP server)
-  await applyDbSchema();
+async function startBot(): Promise<void> {
+  // Apply DB schema
+  console.log('[startup] Running prisma db push...');
+  await pushDbSchema();
+  console.log('[startup] DB schema ready');
 
   await prisma.$connect();
 
@@ -108,6 +84,31 @@ async function bootstrap() {
 
   process.once('SIGINT', () => { bot.stop('SIGINT'); prisma.$disconnect(); });
   process.once('SIGTERM', () => { bot.stop('SIGTERM'); prisma.$disconnect(); });
+}
+
+async function startBotWithRetry(): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await startBot();
+      return;
+    } catch (err) {
+      console.error(`[startup] Bot init attempt ${attempt} failed, retrying in 10s:`, err);
+      await new Promise(r => setTimeout(r, 10000));
+    }
+  }
+}
+
+async function bootstrap() {
+  // Start HTTP server first — health check passes immediately
+  await new Promise<void>((resolve) => {
+    app.listen(cfg.port, () => {
+      console.log(`Server running on port ${cfg.port}`);
+      resolve();
+    });
+  });
+
+  // Run bot setup in the background — doesn't block health check
+  startBotWithRetry();
 }
 
 bootstrap().catch((err) => {
