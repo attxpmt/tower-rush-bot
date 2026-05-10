@@ -82,8 +82,8 @@ async function startBot(): Promise<void> {
     console.log('Bot running in long-polling mode');
   }
 
-  process.once('SIGINT', () => { bot.stop('SIGINT'); prisma.$disconnect(); });
-  process.once('SIGTERM', () => { bot.stop('SIGTERM'); prisma.$disconnect(); });
+  process.once('SIGINT', () => { try { bot.stop('SIGINT'); } catch (_) {} prisma.$disconnect(); });
+  process.once('SIGTERM', () => { try { bot.stop('SIGTERM'); } catch (_) {} prisma.$disconnect(); });
 }
 
 async function startBotWithRetry(): Promise<void> {

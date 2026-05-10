@@ -11,12 +11,17 @@ function optional(key: string, fallback = ''): string {
   return process.env[key] ?? fallback;
 }
 
+function normalizeUrl(url: string): string {
+  if (!url || url.startsWith('http://') || url.startsWith('https://')) return url;
+  return 'https://' + url;
+}
+
 export const cfg = {
   botToken: required('BOT_TOKEN'),
   adminIds: required('ADMIN_IDS').split(',').map((id) => parseInt(id.trim(), 10)),
   port: parseInt(optional('PORT', '3000'), 10),
   nodeEnv: optional('NODE_ENV', 'development'),
-  miniAppUrl: optional('MINI_APP_URL', 'https://your-domain.com'),
+  miniAppUrl: normalizeUrl(optional('MINI_APP_URL', 'https://your-domain.com')),
   webhookUrl: optional('WEBHOOK_URL'),
   webhookSecret: optional('WEBHOOK_SECRET'),
   postbackSecret: required('POSTBACK_SECRET'),
