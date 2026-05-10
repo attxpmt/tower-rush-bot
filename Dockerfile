@@ -23,6 +23,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+COPY --from=base /app/package.json ./package.json
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/dist ./dist
 COPY --from=base /app/prisma ./prisma
@@ -31,4 +32,4 @@ COPY --from=mini-builder /app/mini-app/dist ./mini-app/dist
 # Railway sets PORT dynamically
 EXPOSE ${PORT:-3000}
 
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/index.js"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss --skip-generate && echo 'DB ready, starting app...' && node dist/index.js"]
