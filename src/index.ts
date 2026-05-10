@@ -31,22 +31,31 @@ async function bootstrap() {
 
   const bot = createBot();
 
-  if (cfg.isProduction && cfg.webhookUrl) {
-    await bot.telegram.setWebhook(`${cfg.webhookUrl}`, {
-      secret_token: cfg.webhookSecret,
+  // Start listening first so healthcheck passes immediately
+  await new Promise<void>((resolve) => {
+    app.listen(cfg.port, () => {
+      console.log(`Server running on port ${cfg.port}`);
+      resolve();
     });
-    app.use(
-      bot.webhookCallback('/bot-webhook', { secretToken: cfg.webhookSecret })
-    );
-    console.log('Bot running in webhook mode');
+  });
+
+  if (cfg.isProduction && cfg.webhookUrl) {
+    try {
+      await bot.telegram.setWebhook(cfg.webhookUrl, {
+        secret_token: cfg.webhookSecret,
+      });
+      app.use(
+        bot.webhookCallback('/bot-webhook', { secretToken: cfg.webhookSecret })
+      );
+      console.log('Bot running in webhook mode:', cfg.webhookUrl);
+    } catch (err) {
+      console.error('Webhook setup failed, falling back to long-polling:', err);
+      bot.launch();
+    }
   } else {
     bot.launch();
     console.log('Bot running in long-polling mode');
   }
-
-  app.listen(cfg.port, () => {
-    console.log(`Server running on port ${cfg.port}`);
-  });
 
   process.once('SIGINT', () => { bot.stop('SIGINT'); prisma.$disconnect(); });
   process.once('SIGTERM', () => { bot.stop('SIGTERM'); prisma.$disconnect(); });
