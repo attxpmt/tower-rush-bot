@@ -3,7 +3,7 @@ WORKDIR /app
 
 # Install backend deps
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 # Copy source
 COPY prisma ./prisma
@@ -11,13 +11,13 @@ COPY src ./src
 COPY tsconfig.json ./
 
 # Install dev deps for build
-RUN npm ci && npm run build && npm run prisma:generate
+RUN npm install && npm run build && npm run prisma:generate
 
 # ---- Mini App build ----
 FROM node:20-alpine AS mini-builder
 WORKDIR /app/mini-app
 COPY mini-app/package*.json ./
-RUN npm ci
+RUN npm install
 COPY mini-app ./
 RUN npm run build
 
