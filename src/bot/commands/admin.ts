@@ -78,7 +78,6 @@ async function statsText(period: StatsPeriod) {
 
   return (
     `${E.chart} <b>СТАТИСТИКА</b>  ·  <i>${label}</i>\n\n` +
-    `─────────────────────\n` +
     `${periodBlock}\n\n` +
     `📈 <b>Конверсия</b>\n` +
     `├ Переход → Регистрация: <b>${st.visit2reg}%</b>\n` +
@@ -469,7 +468,6 @@ export function registerAdminCallbacks(bot: Telegraf) {
         chatId, msgId, undefined,
         `✅ <b>Рассылка завершена!</b>\n\n` +
         `${E.chart} <b>Итоги</b>\n` +
-        `─────────────────────\n` +
         `🎯 Аудитория: <b>${categoryLabel(category)}</b>\n` +
         `✅ Доставлено: <b>${sentCount}</b> сообщений\n` +
         `❌ Не доставлено: <b>${failCount}</b> сообщений\n` +
