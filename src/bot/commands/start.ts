@@ -18,7 +18,7 @@ const START_TEXT =
   `▸ Вести статистику твоих раундов\n` +
   `▸ Обучать правильной игровой стратегии\n` +
   `▸ Вовремя останавливать тебя от игры и вовремя рекомендовать начинать</blockquote>\n\n` +
-  `<b>⚡ Чтобы начать</b> — нажми кнопку «Открыть» ниже.\n\n` +
+  `<b>${E.lightning} Чтобы начать</b> — нажми кнопку «Открыть» ниже.\n\n` +
   `<tg-spoiler>Доступ к сигналам открывается после регистрации и первого депозита.</tg-spoiler>\n\n` +
   `<b><i>${E.pin} Остались вопросы? Напиши /help</i></b>`;
 
@@ -34,8 +34,8 @@ export async function handleStart(ctx: Context) {
   const keyboard = mainKeyboard(miniAppUrl, referralUrl);
 
   // Big greeting emoji (renders large when message contains only one emoji)
-  await ctx.reply('🤩', {
-    entities: [{ type: 'custom_emoji' as any, offset: 0, length: 2, custom_emoji_id: '5418019695359976697' }],
+  await ctx.reply('⚡️', {
+    entities: [{ type: 'custom_emoji' as any, offset: 0, length: 2, custom_emoji_id: '5258203794772085854' }],
   });
 
   if (fs.existsSync(startImagePath)) {
