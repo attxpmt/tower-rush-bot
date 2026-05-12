@@ -28,6 +28,7 @@ COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/dist ./dist
 COPY --from=base /app/prisma ./prisma
 COPY --from=mini-builder /app/mini-app/dist ./mini-app/dist
+COPY assets ./assets
 COPY start.sh ./start.sh
 RUN chmod +x start.sh
 

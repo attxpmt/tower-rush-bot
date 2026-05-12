@@ -3,6 +3,23 @@ import { getOrCreateUser } from '../../services/userService';
 import { getSettings } from '../../services/settingsService';
 import { cfg } from '../../config';
 import { mainKeyboard } from '../keyboards/main';
+import path from 'path';
+import fs from 'fs';
+
+const startImagePath = path.join(__dirname, '..', '..', '..', 'assets', 'start.jpg');
+
+const START_TEXT =
+  `<b>👋 ПРИВЕТСТВУЮ!</b>\n\n` +
+  `🏠 Этот бот создан для тех, кто хочет получать точные сигналы для игры <b>Tower Rush</b>.\n\n` +
+  `<b>В основе работы</b> — <i>нейросеть, обученная на тысячах раундов и способная предугадывать вероятности на основе актуальной статистики.</i>\n\n` +
+  `<b>🎯 Что умеет бот:</b>\n` +
+  `<blockquote>▸ Выдавать сигналы по тому, сколько этажей строить\n` +
+  `▸ Вести статистику твоих раундов\n` +
+  `▸ Обучать правильной игровой стратегии\n` +
+  `▸ Вовремя останавливать тебя от игры и вовремя рекомендовать начинать</blockquote>\n\n` +
+  `<b>⚡ Чтобы начать</b> — нажми кнопку «Открыть» ниже.\n\n` +
+  `<tg-spoiler>Доступ к сигналам открывается после регистрации и первого депозита.</tg-spoiler>\n\n` +
+  `<b><i>📌 Остались вопросы? Напиши /help</i></b>`;
 
 export async function handleStart(ctx: Context) {
   const userId = ctx.from?.id;
@@ -13,22 +30,14 @@ export async function handleStart(ctx: Context) {
 
   const referralUrl = settings.referralUrl || cfg.referralUrl;
   const miniAppUrl = cfg.miniAppUrl;
+  const keyboard = mainKeyboard(miniAppUrl, referralUrl);
 
-  await ctx.reply(
-    `🎰 <b>Приветствуем!</b>\n\n` +
-    `Этот бот создан для тех, кто хочет получать точные сигналы для игры <b>Tower Rush</b>. ` +
-    `В основе работы — нейросеть, обученная на тысячах раундов и способная предугадывать вероятности на основе актуальной статистики.\n\n` +
-    `<b>🎯 Что умеет бот:</b>\n` +
-    `▸ Выдавать сигналы с коэффициентом и уровнем риска\n` +
-    `▸ Вести статистику твоих раундов\n` +
-    `▸ Обучать правильной игровой стратегии\n` +
-    `▸ Уведомлять о подтверждении аккаунта и депозита\n\n` +
-    `⚡ <b>Чтобы начать</b> — нажми кнопку <b>«Открыть»</b> ниже.\n` +
-    `Доступ к сигналам открывается после регистрации и первого депозита.\n\n` +
-    `📌 <i>Остались вопросы? Напиши</i> /help`,
-    {
-      parse_mode: 'HTML',
-      ...mainKeyboard(miniAppUrl, referralUrl),
-    }
-  );
+  if (fs.existsSync(startImagePath)) {
+    await ctx.replyWithPhoto(
+      { source: fs.createReadStream(startImagePath) },
+      { caption: START_TEXT, parse_mode: 'HTML', ...keyboard }
+    );
+  } else {
+    await ctx.reply(START_TEXT, { parse_mode: 'HTML', ...keyboard });
+  }
 }
