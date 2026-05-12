@@ -33,6 +33,11 @@ export async function handleStart(ctx: Context) {
   const miniAppUrl = cfg.miniAppUrl;
   const keyboard = mainKeyboard(miniAppUrl, referralUrl);
 
+  // Big greeting emoji (renders large when message contains only one emoji)
+  await ctx.reply('🤩', {
+    entities: [{ type: 'custom_emoji' as any, offset: 0, length: 2, custom_emoji_id: '5418019695359976697' }],
+  });
+
   if (fs.existsSync(startImagePath)) {
     await ctx.replyWithPhoto(
       { source: fs.createReadStream(startImagePath) },

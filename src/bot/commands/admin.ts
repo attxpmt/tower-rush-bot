@@ -247,7 +247,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
       if (!isAdmin(ctx)) return ctx.answerCbQuery('Нет доступа');
       await ctx.answerCbQuery();
       s(ctx).awaitingField = field;
-      await ctx.reply(`✏️ Введи ${FIELD_LABELS[field]}:`);
+      await ctx.reply(`${E.pen} Введи ${FIELD_LABELS[field]}:`, { parse_mode: 'HTML' });
     });
   }
 
@@ -468,7 +468,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
       await ctx.telegram.editMessageText(
         chatId, msgId, undefined,
         `✅ <b>Рассылка завершена!</b>\n\n` +
-        `📊 <b>Итоги</b>\n` +
+        `${E.chart} <b>Итоги</b>\n` +
         `─────────────────────\n` +
         `🎯 Аудитория: <b>${categoryLabel(category)}</b>\n` +
         `✅ Доставлено: <b>${sentCount}</b> сообщений\n` +
