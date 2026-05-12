@@ -28,19 +28,26 @@ export async function linkOnewinId(telegramId: number, onewinId: string) {
     throw new Error('Этот 1win ID уже привязан к другому аккаунту');
   }
 
-  const hasPostback = await prisma.postback.findFirst({ where: { onewinId } });
+  const [depositAgg, hasRegistration] = await Promise.all([
+    prisma.postback.aggregate({
+      where: { onewinId, eventType: 'deposit' },
+      _count: true,
+      _sum: { amount: true },
+    }),
+    prisma.postback.findFirst({ where: { onewinId } }),
+  ]);
+
+  const depositCount = depositAgg._count;
+  const totalDeposit = depositAgg._sum.amount ?? 0;
+  const hasDeposit = depositCount > 0;
 
   let status: Status = 'NEW';
-  if (hasPostback) {
-    const hasDeposit = await prisma.postback.findFirst({
-      where: { onewinId, eventType: 'deposit' },
-    });
-    status = hasDeposit ? 'DEPOSITED' : 'REGISTERED';
-  }
+  if (hasDeposit) status = 'DEPOSITED';
+  else if (hasRegistration) status = 'REGISTERED';
 
   return prisma.user.update({
     where: { telegramId: BigInt(telegramId) },
-    data: { onewinId, status },
+    data: { onewinId, status, hasDeposit, depositCount, totalDeposit },
   });
 }
 

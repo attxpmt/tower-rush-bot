@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { getOrCreateUser, getUserByTelegramId, linkOnewinId } from '../../services/userService';
+import { getOrCreateUser, linkOnewinId } from '../../services/userService';
 
 const router = Router();
 
