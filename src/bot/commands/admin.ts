@@ -1,5 +1,6 @@
 import { Context, Telegraf, Markup } from 'telegraf';
 import { cfg } from '../../config';
+import { E } from '../emoji';
 import { getAdminStatsWithPeriod, getAllUsersForExport, StatsPeriod } from '../../services/userService';
 import { getSettings, updateSettings } from '../../services/settingsService';
 import {
@@ -47,7 +48,7 @@ function periodLabel(p: StatsPeriod): string {
 
 function adminPanelText() {
   return (
-    `🛡 <b>АДМИН ПАНЕЛЬ</b>\n\n` +
+    `${E.shield} <b>АДМИН ПАНЕЛЬ</b>\n\n` +
     `Управляй ботом, отслеживай статистику и запускай рассылки.`
   );
 }
@@ -69,20 +70,20 @@ async function statsText(period: StatsPeriod) {
   const periodBlock = period === 'all'
     ? `👥 Пользователей всего: <b>${st.totalUsers}</b>\n` +
       `├ ✅ Зарегистрировались: <b>${st.registeredTotal}</b> (${st.visit2reg}%)\n` +
-      `├ 💰 Сделали депозит: <b>${st.depositedTotal}</b> (${st.reg2dep}%)\n` +
+      `├ ${E.moneybag} Сделали депозит: <b>${st.depositedTotal}</b> (${st.reg2dep}%)\n` +
       `└ 👑 VIP: <b>${st.vipTotal}</b>`
     : `👥 Новых пользователей: <b>${st.periodUsers}</b>\n` +
       `├ ✅ Регистраций: <b>${st.registrations}</b>\n` +
-      `└ 💰 Депозитов: <b>${st.deposits}</b>`;
+      `└ ${E.moneybag} Депозитов: <b>${st.deposits}</b>`;
 
   return (
-    `📊 <b>СТАТИСТИКА</b>  ·  <i>${label}</i>\n\n` +
+    `${E.chart} <b>СТАТИСТИКА</b>  ·  <i>${label}</i>\n\n` +
     `─────────────────────\n` +
     `${periodBlock}\n\n` +
     `📈 <b>Конверсия</b>\n` +
     `├ Переход → Регистрация: <b>${st.visit2reg}%</b>\n` +
     `└ Регистрация → Депозит: <b>${st.reg2dep}%</b>\n\n` +
-    `💵 <b>Финансы</b>\n` +
+    `${E.dollar} <b>Финансы</b>\n` +
     `└ Сумма депозитов: <b>$${st.totalDepositAmount}</b>\n\n` +
     `🎯 <b>Активность</b>\n` +
     `├ Сигналов выдано: <b>${st.signalsCount}</b>\n` +
@@ -473,7 +474,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
         `✅ Доставлено: <b>${sentCount}</b> сообщений\n` +
         `❌ Не доставлено: <b>${failCount}</b> сообщений\n` +
         `   └ Заблокировали бота: ${failCount}\n\n` +
-        `⏱ Время выполнения: <b>${elapsed}</b>`,
+        `${E.stopwatch} Время выполнения: <b>${elapsed}</b>`,
         {
           parse_mode: 'HTML',
           ...Markup.inlineKeyboard([

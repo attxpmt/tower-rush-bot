@@ -2,13 +2,14 @@ import { Context } from 'telegraf';
 import { getSettings } from '../../services/settingsService';
 import { cfg } from '../../config';
 import { helpKeyboard } from '../keyboards/main';
+import { E } from '../emoji';
 import path from 'path';
 import fs from 'fs';
 
 const helpImagePath = path.join(__dirname, '..', '..', '..', 'assets', 'help.jpg');
 
 const HELP_TEXT =
-  `📌 <b>ПОМОЩЬ</b>\n\n` +
+  `${E.pin} <b>ПОМОЩЬ</b>\n\n` +
   `Здесь ты найдёшь всё необходимое для работы с ботом. ` +
   `Чтобы начать — открой мини-приложение кнопкой «Открыть» ниже.\n\n` +
   `─────────────────────\n\n` +

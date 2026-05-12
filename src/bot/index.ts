@@ -1,5 +1,6 @@
 import { Telegraf, session } from 'telegraf';
 import { cfg } from '../config';
+import { E } from './emoji';
 import { handleStart } from './commands/start';
 import { handleHelp } from './commands/help';
 import { handleAdmin, registerAdminCallbacks, sendAdminNotification } from './commands/admin';
@@ -42,7 +43,7 @@ export function createBot() {
         const isFirst = user.depositCount === 1;
         await sendAdminNotification(
           bot,
-          `${isFirst ? '🎉 <b>Первый депозит!</b>' : '💵 <b>Повторный депозит</b>'}\n` +
+          `${isFirst ? '🎉 <b>Первый депозит!</b>' : `${E.dollar} <b>Повторный депозит</b>`}\n` +
           `1win ID: <code>${user.onewinId}</code>\n` +
           `Сумма: <b>${amount ?? '—'}</b>\n` +
           `Всего депозитов: ${user.depositCount}`
