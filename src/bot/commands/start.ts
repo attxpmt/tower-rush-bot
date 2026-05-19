@@ -10,8 +10,8 @@ import fs from 'fs';
 const startImagePath = path.join(__dirname, '..', '..', '..', 'assets', 'start.jpg');
 
 const START_TEXT =
-  `${E.lightning} <b>TOWER RUSH SIGNALS</b>\n\n` +
-  `${E.shield} Этот бот создан для тех, кто играет в <b>Tower Rush</b> и хочет принимать решения на основе данных, а не интуиции.\n\n` +
+  `${E.house} <b>TOWER RUSH SIGNALS</b>\n\n` +
+  `${E.shield} Этот бот создан для тех, кто играет в Tower Rush и хочет принимать решения на основе данных, а не интуиции.\n\n` +
   `<b>${E.chart} Что делает бот:</b>\n` +
   `<blockquote>▸ Выдаёт сигналы — сколько этажей строить и с каким коэффициентом\n` +
   `▸ Подбирает стратегию под твой стиль игры\n` +

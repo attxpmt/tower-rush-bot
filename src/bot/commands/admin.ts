@@ -1,6 +1,10 @@
 import { Context, Telegraf, Markup } from 'telegraf';
 import { cfg } from '../../config';
 import { E } from '../emoji';
+import path from 'path';
+import fs from 'fs';
+
+const adminVideoPath = path.join(__dirname, '..', '..', '..', 'assets', 'admin.mp4');
 import { getAdminStatsWithPeriod, getAllUsersForExport, StatsPeriod } from '../../services/userService';
 import { getSettings, updateSettings } from '../../services/settingsService';
 import {
@@ -180,6 +184,9 @@ export async function handleAdmin(ctx: Context) {
   if (!isAdmin(ctx)) return ctx.reply('⛔ Доступ запрещён');
   s(ctx).broadcastSetup = null;
   s(ctx).awaitingField = null;
+  if (fs.existsSync(adminVideoPath)) {
+    await ctx.replyWithVideo({ source: fs.createReadStream(adminVideoPath) });
+  }
   await ctx.reply(adminPanelText(), { parse_mode: 'HTML', ...adminPanelKeyboard() });
 }
 
