@@ -1,7 +1,7 @@
 import { Telegraf, session } from 'telegraf';
 import { cfg } from '../config';
 import { E } from './emoji';
-import { handleStart } from './commands/start';
+import { handleStart, registerSubscriptionCallbacks } from './commands/start';
 import { handleHelp } from './commands/help';
 import { handleAdmin, registerAdminCallbacks, sendAdminNotification } from './commands/admin';
 import { startBroadcastScheduler } from '../services/broadcastService';
@@ -25,6 +25,7 @@ export function createBot() {
   bot.command('admin', handleAdmin);
 
   registerAdminCallbacks(bot);
+  registerSubscriptionCallbacks(bot);
 
   startBroadcastScheduler(bot);
 
