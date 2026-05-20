@@ -1,10 +1,6 @@
 import { Context, Telegraf, Markup } from 'telegraf';
 import { cfg } from '../../config';
 import { E } from '../emoji';
-import path from 'path';
-import fs from 'fs';
-
-const adminGifPath = path.join(__dirname, '..', '..', '..', 'assets', 'admin.gif');
 import { getAdminStatsWithPeriod, getAllUsersForExport, StatsPeriod } from '../../services/userService';
 import { getSettings, updateSettings } from '../../services/settingsService';
 import {
@@ -180,18 +176,14 @@ function broadcastKeyboard(bc: BroadcastSetup) {
 
 // ─── main command ─────────────────────────────────────────────────────────────
 
+const ADMIN_STICKER_ID = 'CAACAgIAAxkBAAFKHWRqDRewA1TVaAusxlUCk3tJ_qbLhgAC70kAAtYSuUgiD-G27Qg7mjsE';
+
 export async function handleAdmin(ctx: Context) {
   if (!isAdmin(ctx)) return ctx.reply('⛔ Доступ запрещён');
   s(ctx).broadcastSetup = null;
   s(ctx).awaitingField = null;
-  if (fs.existsSync(adminGifPath)) {
-    await ctx.replyWithAnimation(
-      { source: fs.createReadStream(adminGifPath) },
-      { caption: adminPanelText(), parse_mode: 'HTML', ...adminPanelKeyboard() }
-    );
-  } else {
-    await ctx.reply(adminPanelText(), { parse_mode: 'HTML', ...adminPanelKeyboard() });
-  }
+  await ctx.replyWithSticker(ADMIN_STICKER_ID);
+  await ctx.reply(adminPanelText(), { parse_mode: 'HTML', ...adminPanelKeyboard() });
 }
 
 // ─── callbacks ────────────────────────────────────────────────────────────────
@@ -205,16 +197,9 @@ export function registerAdminCallbacks(bot: Telegraf) {
     s(ctx).broadcastSetup = null;
     s(ctx).awaitingField = null;
     try {
-      await ctx.editMessageCaption(adminPanelText(), { parse_mode: 'HTML', ...adminPanelKeyboard() });
+      await ctx.editMessageText(adminPanelText(), { parse_mode: 'HTML', ...adminPanelKeyboard() });
     } catch (_) {
-      if (fs.existsSync(adminGifPath)) {
-        await ctx.replyWithAnimation(
-          { source: fs.createReadStream(adminGifPath) },
-          { caption: adminPanelText(), parse_mode: 'HTML', ...adminPanelKeyboard() }
-        );
-      } else {
-        await ctx.reply(adminPanelText(), { parse_mode: 'HTML', ...adminPanelKeyboard() });
-      }
+      await ctx.reply(adminPanelText(), { parse_mode: 'HTML', ...adminPanelKeyboard() });
     }
   });
 
@@ -224,7 +209,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
       if (!isAdmin(ctx)) return ctx.answerCbQuery('Нет доступа');
       await ctx.answerCbQuery();
       try {
-        await ctx.editMessageCaption(await statsText(period), {
+        await ctx.editMessageText(await statsText(period), {
           parse_mode: 'HTML',
           ...statsKeyboard(period),
         });
@@ -242,7 +227,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
     if (!isAdmin(ctx)) return ctx.answerCbQuery('Нет доступа');
     await ctx.answerCbQuery();
     try {
-      await ctx.editMessageCaption(await dataText(), {
+      await ctx.editMessageText(await dataText(), {
         parse_mode: 'HTML',
         ...dataKeyboard(),
       });
@@ -277,7 +262,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
     bc.setupMsgId = (ctx.callbackQuery?.message as any)?.message_id;
     bc.chatId = ctx.chat?.id;
     try {
-      await ctx.editMessageCaption(broadcastText(bc), {
+      await ctx.editMessageText(broadcastText(bc), {
         parse_mode: 'HTML',
         ...broadcastKeyboard(bc),
       });
@@ -295,7 +280,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
     if (!isAdmin(ctx)) return ctx.answerCbQuery('Нет доступа');
     await ctx.answerCbQuery();
     try {
-      await ctx.editMessageCaption(
+      await ctx.editMessageText(
         `📣 <b>РАССЫЛКА</b>  ·  Выбери аудиторию\n\nКому отправить сообщение?`,
         {
           parse_mode: 'HTML',
@@ -317,7 +302,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
       bcSetup(ctx).category = cat;
       const bc = bcSetup(ctx);
       try {
-        await ctx.editMessageCaption(broadcastText(bc), {
+        await ctx.editMessageText(broadcastText(bc), {
           parse_mode: 'HTML',
           ...broadcastKeyboard(bc),
         });
@@ -343,7 +328,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
     if (!isAdmin(ctx)) return ctx.answerCbQuery('Нет доступа');
     await ctx.answerCbQuery();
     try {
-      await ctx.editMessageCaption(
+      await ctx.editMessageText(
         `📣 <b>РАССЫЛКА</b>  ·  Время отправки\n\nВыбери, когда отправить рассылку:`,
         {
           parse_mode: 'HTML',
@@ -376,7 +361,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
       const bc = bcSetup(ctx);
       bc.scheduledAt = getter() as any;
       try {
-        await ctx.editMessageCaption(broadcastText(bc), {
+        await ctx.editMessageText(broadcastText(bc), {
           parse_mode: 'HTML',
           ...broadcastKeyboard(bc),
         });
@@ -401,7 +386,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
     bcSetup(ctx).step = undefined;
     const bc = bcSetup(ctx);
     try {
-      await ctx.editMessageCaption(broadcastText(bc), {
+      await ctx.editMessageText(broadcastText(bc), {
         parse_mode: 'HTML',
         ...broadcastKeyboard(bc),
       });
@@ -429,7 +414,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
       s(ctx).broadcastSetup = null;
       const timeStr = bc.scheduledAt.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
       try {
-        await ctx.editMessageCaption(
+        await ctx.editMessageText(
           `✅ <b>Рассылка запланирована!</b>\n\n` +
           `🎯 Аудитория: <b>${categoryLabel(bc.category)}</b>\n` +
           `⏰ Запуск: <b>${timeStr}</b>`,
@@ -450,7 +435,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
     const startTime = Date.now();
 
     try {
-      await ctx.telegram.editMessageCaption(
+      await ctx.telegram.editMessageText(
         chatId, msgId, undefined,
         `📣 <b>Рассылка запущена...</b>\n\nАудитория: <b>${categoryLabel(category)}</b>\n\n⏳ Подготовка...`,
         { parse_mode: 'HTML' }
@@ -466,7 +451,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
         const bar = progressBar(done, total);
         const pct = total > 0 ? Math.floor((done / total) * 100) : 0;
         try {
-          await ctx.telegram.editMessageCaption(
+          await ctx.telegram.editMessageText(
             chatId, msgId, undefined,
             `📣 <b>Рассылка запущена...</b>\n\n` +
             `Аудитория: <b>${categoryLabel(category)}</b>\n\n` +
@@ -482,7 +467,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
     const elapsed = formatDuration(Date.now() - startTime);
 
     try {
-      await ctx.telegram.editMessageCaption(
+      await ctx.telegram.editMessageText(
         chatId, msgId, undefined,
         `✅ <b>Рассылка завершена!</b>\n\n` +
         `${E.chart} <b>Итоги</b>\n` +

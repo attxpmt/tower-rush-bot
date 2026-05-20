@@ -96,17 +96,19 @@ export default function DashboardPage({ user, telegramId, onTabChange, onShowOnb
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: 'easeOut' }}
-          style={{ width: 180, height: 'auto', objectFit: 'contain' }}
+          style={{
+            width: 150,
+            height: 'auto',
+            objectFit: 'contain',
+            filter: 'drop-shadow(0 0 24px rgba(245,166,35,0.5)) drop-shadow(0 0 48px rgba(245,166,35,0.2))',
+          }}
         />
-        <div style={{ color: colors.textMuted, fontSize: 12, letterSpacing: 0.5 }}>
-          Сигнальный бот для Tower Rush
-        </div>
       </div>
 
       <div style={{ padding: '12px 16px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* ── Player Card ── */}
-        <GlowCard variant="navy">
+        <GlowCard variant="navy" style={{ animation: 'pulse-glow 3s ease-in-out infinite' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
             {/* Avatar + name */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
@@ -235,7 +237,7 @@ export default function DashboardPage({ user, telegramId, onTabChange, onShowOnb
           <NavCard
             icon={<Zap size={20} fill={isUnlocked ? colors.amber : 'none'} color={isUnlocked ? colors.amber : colors.textMuted} />}
             label="Сигналы"
-            desc={isUnlocked ? 'Получай точные сигналы' : 'Нужен депозит'}
+            desc={isUnlocked ? 'Получай точные сигналы' : 'Доступно после пополнения баланса'}
             locked={!isUnlocked}
             amber
             onClick={() => isUnlocked ? onTabChange('signals') : onShowOnboard()}
