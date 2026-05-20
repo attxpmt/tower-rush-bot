@@ -317,16 +317,16 @@ function GameScene({ phase, isHoisting, isBlockFalling }: {
         zIndex: 2,
       }} />
 
-      {/* Tower base — stands on road */}
+      {/* Tower base — stands on road (30% of foreground height from bottom = ~10% of game area) */}
       <img src="/basis-tower.webp" alt="" style={{
         position: 'absolute',
-        bottom: '32%',
+        bottom: '10%',
         left: '50%', transform: 'translateX(-50%)',
         width: '48%',
         zIndex: 3,
       }} />
 
-      {/* dom.webp — falls from top, lands at ~80% tower height */}
+      {/* dom.webp — falls from top, lands at ~80% of tower height from its base */}
       <AnimatePresence>
         {isBlockFalling && (
           <motion.img
@@ -334,7 +334,7 @@ function GameScene({ phase, isHoisting, isBlockFalling }: {
             src="/dom.webp" alt=""
             style={{
               position: 'absolute',
-              bottom: '53%',
+              bottom: '38%',
               left: '50%',
               width: '32%',
               x: '-50%',
