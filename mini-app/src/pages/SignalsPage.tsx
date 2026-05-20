@@ -15,7 +15,6 @@ interface Props {
 type Phase = 'locked' | 'prepare' | 'playing' | 'analyzing' | 'result';
 
 const MAX_SIGNALS = 6;
-const BLOCK_SHIFT_PX = 46;
 
 const STRATEGIES: { id: Strategy; label: string; desc: string; color: string }[] = [
   { id: 'stable',     label: 'Стабильная',  desc: 'Крупная ставка · мало этажей',    color: '#00d4ff' },
@@ -46,7 +45,6 @@ export default function SignalsPage({ user, telegramId }: Props) {
   const [sessionLosses, setSessionLosses] = useState(0);
   const [analysisProgress, setAnalysisProgress] = useState([0, 0, 0]);
   const [confidence, setConfidence] = useState(85);
-  const [sceneOffset, setSceneOffset] = useState(0);
   const [isHoisting, setIsHoisting] = useState(false);
   const [isBlockFalling, setIsBlockFalling] = useState(false);
   const { showToast } = useToast();
@@ -78,16 +76,20 @@ export default function SignalsPage({ user, telegramId }: Props) {
 
   async function handleGetSignal() {
     if (!canGetSignal) return;
+    // 1. Crane hoists up
     setIsHoisting(true);
-    await delay(650);
+    await delay(600);
+    // 2. Block falls — wait for spring to settle before showing analysis
     setIsBlockFalling(true);
+    await delay(1100);
+    // 3. Now show analysis panel
+    setAnalysisProgress([0, 0, 0]);
     setPhase('analyzing');
     try {
       const [result] = await Promise.all([generateSignal(telegramId, strategy), runAnalysis()]);
       setSignal(result);
       setConfidence(70 + (result.id % 26));
-      await delay(300);
-      setIsHoisting(false);
+      await delay(200);
       setPhase('result');
     } catch {
       showToast('Ошибка получения сигнала', 'error');
@@ -102,7 +104,6 @@ export default function SignalsPage({ user, telegramId }: Props) {
     setSessionWins(0);
     setSessionLosses(0);
     setSignal(null);
-    setSceneOffset(0);
     setIsHoisting(false);
     setIsBlockFalling(false);
     setPhase('playing');
@@ -113,7 +114,7 @@ export default function SignalsPage({ user, telegramId }: Props) {
     else setSessionLosses((l) => l + 1);
     setSessionRounds((r) => r + 1);
     setIsBlockFalling(false);
-    setSceneOffset((o) => o + BLOCK_SHIFT_PX);
+    setIsHoisting(false);
     setSignal(null);
     setPhase('playing');
     showToast(won ? 'Победа записана! 🏆' : 'Поражение записано', won ? 'success' : 'error');
@@ -121,7 +122,6 @@ export default function SignalsPage({ user, telegramId }: Props) {
 
   function endSession() {
     setSignal(null);
-    setSceneOffset(0);
     setIsHoisting(false);
     setIsBlockFalling(false);
     setPhase('prepare');
@@ -131,52 +131,60 @@ export default function SignalsPage({ user, telegramId }: Props) {
   const calculatedBet = riskNum > 0 ? Math.round(riskNum * BET_MULT[strategy]) : null;
 
   return (
-    <div style={{ position: 'relative', height: 'calc(100vh - 80px)', overflow: 'hidden' }}>
-      <GameScene
-        blockCount={blockCount}
-        phase={phase}
-        sceneOffset={sceneOffset}
-        isHoisting={isHoisting}
-        isBlockFalling={isBlockFalling}
-      />
+    <div style={{ position: 'relative', height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-      {(phase === 'playing' || phase === 'analyzing' || phase === 'result') && (
-        <TopPanel wins={sessionWins} losses={sessionLosses} rounds={sessionRounds} />
-      )}
+      {/* ── Game area ── */}
+      <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
+        <GameScene
+          phase={phase}
+          isHoisting={isHoisting}
+          isBlockFalling={isBlockFalling}
+        />
 
-      <AnimatePresence>
-        {phase === 'locked' && (
-          <LockedOverlay key="locked" onOpen={() => settings?.referralUrl && WebApp.openLink(settings.referralUrl)} />
+        {(phase === 'playing' || phase === 'analyzing' || phase === 'result') && (
+          <TopPanel wins={sessionWins} losses={sessionLosses} rounds={sessionRounds} />
         )}
-      </AnimatePresence>
 
-      <AnimatePresence>
-        {phase === 'prepare' && (
-          <PrepareOverlay
-            key="prepare"
-            strategy={strategy}
-            riskAmount={riskAmount}
-            onRiskAmountChange={setRiskAmount}
-            onStrategyChange={setStrategy}
-            onStart={startSession}
-          />
-        )}
-      </AnimatePresence>
+        <AnimatePresence>
+          {phase === 'locked' && (
+            <LockedOverlay key="locked" onOpen={() => settings?.referralUrl && WebApp.openLink(settings.referralUrl)} />
+          )}
+        </AnimatePresence>
 
-      <AnimatePresence>
-        {phase === 'analyzing' && (
-          <AnalyzingOverlay key="analyzing" progress={analysisProgress} />
-        )}
-      </AnimatePresence>
+        <AnimatePresence>
+          {phase === 'prepare' && (
+            <PrepareOverlay
+              key="prepare"
+              strategy={strategy}
+              riskAmount={riskAmount}
+              onRiskAmountChange={setRiskAmount}
+              onStrategyChange={setStrategy}
+              onStart={startSession}
+            />
+          )}
+        </AnimatePresence>
 
+        <AnimatePresence>
+          {phase === 'analyzing' && (
+            <AnalyzingOverlay key="analyzing" progress={analysisProgress} />
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* ── Button strip — only during playing ── */}
       <AnimatePresence>
         {phase === 'playing' && (
           <motion.div
             key="play-btns"
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 30 }}
-            style={{ position: 'absolute', bottom: 16, left: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 10 }}
+            exit={{ opacity: 0, y: 20 }}
+            style={{
+              background: colors.bg,
+              padding: '12px 16px 16px',
+              display: 'flex', flexDirection: 'column', gap: 8,
+              flexShrink: 0, zIndex: 10,
+            }}
           >
             {canGetSignal ? (
               <motion.button
@@ -190,7 +198,6 @@ export default function SignalsPage({ user, telegramId }: Props) {
                   cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                   boxShadow: `${glow.amberStrong}, 0 4px 24px rgba(0,0,0,0.6)`,
-                  animation: 'pulse-glow 2s ease-in-out infinite',
                 }}
               >
                 <Zap size={20} fill="#000" /> ПОЛУЧИТЬ СИГНАЛ
@@ -223,6 +230,7 @@ export default function SignalsPage({ user, telegramId }: Props) {
         )}
       </AnimatePresence>
 
+      {/* ── Result card — slides up over everything ── */}
       <AnimatePresence>
         {phase === 'result' && signal && (
           <ResultCard
@@ -241,9 +249,8 @@ export default function SignalsPage({ user, telegramId }: Props) {
 
 // ─── Game Scene ────────────────────────────────────────────────────────────────
 
-function GameScene({ blockCount, phase, sceneOffset, isHoisting, isBlockFalling }: {
-  blockCount: number; phase: Phase; sceneOffset: number;
-  isHoisting: boolean; isBlockFalling: boolean;
+function GameScene({ phase, isHoisting, isBlockFalling }: {
+  phase: Phase; isHoisting: boolean; isBlockFalling: boolean;
 }) {
   const isSwinging = phase === 'playing';
 
@@ -276,19 +283,19 @@ function GameScene({ blockCount, phase, sceneOffset, isHoisting, isBlockFalling 
         width: '70%', opacity: 0.3, mixBlendMode: 'screen',
       }} />
 
-      {/* Crane — hoists up when signal requested */}
+      {/* Crane — center top, swings; hoists up on signal */}
       <motion.img
-        src="/kran.webp" alt=""
+        src="/kran-new.webp" alt=""
         style={{
-          position: 'absolute', top: '-2%', left: '50%',
-          width: '52%',
+          position: 'absolute', top: 0, left: '50%',
+          width: '65%',
           transformOrigin: '50% 0%',
           x: '-50%',
           zIndex: 4,
         }}
         animate={
           isHoisting
-            ? { y: '-130%', rotate: 0 }
+            ? { y: '-120%', rotate: 0 }
             : isSwinging
               ? { y: 0, rotate: [-20, 20, -20] }
               : { y: 0, rotate: [-3, 3, -3] }
@@ -297,69 +304,46 @@ function GameScene({ blockCount, phase, sceneOffset, isHoisting, isBlockFalling 
           isHoisting
             ? { duration: 0.5, ease: 'easeIn' }
             : isSwinging
-              ? { rotate: { duration: 2.0, repeat: Infinity, ease: 'easeInOut' }, y: { duration: 0.5, ease: 'easeOut' } }
-              : { rotate: { duration: 5, repeat: Infinity, ease: 'easeInOut' }, y: { duration: 0.5, ease: 'easeOut' } }
+              ? { rotate: { duration: 2.0, repeat: Infinity, ease: 'easeInOut' }, y: { duration: 0.4, ease: 'easeOut' } }
+              : { rotate: { duration: 5, repeat: Infinity, ease: 'easeInOut' }, y: { duration: 0.4, ease: 'easeOut' } }
         }
       />
 
-      {/* Ground group — translates down as blocks stack */}
-      <motion.div
-        animate={{ y: sceneOffset }}
-        transition={{ duration: 0.8, ease: 'easeInOut' }}
-        style={{ position: 'absolute', inset: 0, zIndex: 2 }}
-      >
-        {/* Street / city foreground */}
-        <img src="/background-front.webp" alt="" style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0,
-          width: '100%', height: '30%',
-          objectFit: 'cover', objectPosition: 'center bottom',
-        }} />
+      {/* City foreground — sits at bottom of game area */}
+      <img src="/background-front.webp" alt="" style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        width: '100%', height: '32%',
+        objectFit: 'cover', objectPosition: 'center bottom',
+        zIndex: 2,
+      }} />
 
-        {/* Tower base — sits on top of street */}
-        <img src="/basis-tower.webp" alt="" style={{
-          position: 'absolute',
-          bottom: '30%',
-          left: '50%', transform: 'translateX(-50%)',
-          width: '52%',
-        }} />
+      {/* Tower base — stands on road */}
+      <img src="/basis-tower.webp" alt="" style={{
+        position: 'absolute',
+        bottom: '32%',
+        left: '50%', transform: 'translateX(-50%)',
+        width: '48%',
+        zIndex: 3,
+      }} />
 
-        {/* Stacked blocks — each 7% apart, no overlap */}
-        {Array.from({ length: blockCount }).map((_, i) => (
-          <motion.img
-            key={i}
-            src="/block.webp" alt=""
-            initial={{ y: -60, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-            style={{
-              position: 'absolute',
-              bottom: `calc(30% + 11% + ${i * 7}%)`,
-              left: '50%', transform: 'translateX(-50%)',
-              width: '30%',
-              zIndex: 3,
-            }}
-          />
-        ))}
-      </motion.div>
-
-      {/* Falling block — outside ground group, fixed screen position */}
+      {/* dom.webp — falls from top, lands at ~80% tower height */}
       <AnimatePresence>
         {isBlockFalling && (
           <motion.img
-            key="falling-block"
-            src="/block.webp" alt=""
+            key="falling-dom"
+            src="/dom.webp" alt=""
             style={{
               position: 'absolute',
-              top: '44%',
+              bottom: '53%',
               left: '50%',
-              width: '30%',
+              width: '32%',
               x: '-50%',
               zIndex: 5,
             }}
-            initial={{ y: -580 }}
+            initial={{ y: -700 }}
             animate={{ y: 0 }}
-            exit={{ opacity: 0, transition: { duration: 0.15 } }}
-            transition={{ type: 'spring', stiffness: 250, damping: 26 }}
+            exit={{ opacity: 0, transition: { duration: 0.2 } }}
+            transition={{ type: 'spring', stiffness: 220, damping: 28 }}
           />
         )}
       </AnimatePresence>
