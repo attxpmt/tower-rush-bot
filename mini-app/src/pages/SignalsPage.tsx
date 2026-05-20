@@ -81,8 +81,8 @@ export default function SignalsPage({ user, telegramId }: Props) {
     await delay(600);
     // 2. Block falls — wait for spring to settle before showing analysis
     setIsBlockFalling(true);
-    await delay(1100);
-    // 3. Now show analysis panel
+    await delay(1500);
+    // 3. Now show analysis panel — block has fully landed
     setAnalysisProgress([0, 0, 0]);
     setPhase('analyzing');
     try {
@@ -326,7 +326,7 @@ function GameScene({ phase, isHoisting, isBlockFalling }: {
         zIndex: 3,
       }} />
 
-      {/* dom.webp — falls from top, lands at ~80% of tower height from its base */}
+      {/* dom.webp — falls from top, bounces on landing */}
       <AnimatePresence>
         {isBlockFalling && (
           <motion.img
@@ -334,16 +334,17 @@ function GameScene({ phase, isHoisting, isBlockFalling }: {
             src="/dom.webp" alt=""
             style={{
               position: 'absolute',
-              bottom: '38%',
+              bottom: '25%',
               left: '50%',
-              width: '32%',
+              width: '48%',
               x: '-50%',
               zIndex: 5,
+              transformOrigin: '50% 100%',
             }}
-            initial={{ y: -700 }}
-            animate={{ y: 0 }}
+            initial={{ y: -750, scaleY: 1 }}
+            animate={{ y: [null, 0, -18, 6, -4, 0], scaleY: [1, 0.82, 1.06, 0.95, 1.02, 1] }}
             exit={{ opacity: 0, transition: { duration: 0.2 } }}
-            transition={{ type: 'spring', stiffness: 220, damping: 28 }}
+            transition={{ duration: 1.3, ease: ['easeIn', 'easeOut', 'easeOut', 'easeOut', 'easeOut', 'easeOut'], times: [0, 0.55, 0.68, 0.78, 0.88, 1] }}
           />
         )}
       </AnimatePresence>
