@@ -1,9 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User } from '../types';
-import { verifyOnewinId } from '../api';
+import {
+  Hash, Gamepad2, Wallet, TrendingUp, DollarSign,
+  Zap, Shield, Calendar, RefreshCw, User as UserIcon,
+  ExternalLink, Copy, Edit3,
+} from 'lucide-react';
+import WebApp from '@twa-dev/sdk';
+import { User, Settings } from '../types';
+import { verifyOnewinId, refreshUserStats, fetchSettings, getUserAvatar } from '../api';
+import { useToast } from '../components/Toast';
+import GlowCard from '../components/GlowCard';
 import StatusBadge from '../components/StatusBadge';
-import GlowButton from '../components/GlowButton';
+import { colors, glow, gradient, radius } from '../theme';
 
 interface Props {
   user: User;
@@ -12,91 +20,392 @@ interface Props {
 }
 
 export default function ProfilePage({ user, telegramId, onUserUpdate }: Props) {
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [onewinInput, setOnewinInput] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [editingOnewin, setEditingOnewin] = useState(false);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyError, setVerifyError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshCooldown, setRefreshCooldown] = useState(false);
+  const [rotation, setRotation] = useState(0);
+  const { showToast } = useToast();
 
-  async function handleVerify() {
-    if (!onewinInput.trim()) return;
-    setLoading(true);
-    setError('');
+  const tgUser = WebApp.initDataUnsafe?.user;
+  const displayName = tgUser
+    ? `${tgUser.first_name}${tgUser.last_name ? ' ' + tgUser.last_name : ''}`
+    : `User ${telegramId}`;
+
+  useEffect(() => {
+    getUserAvatar(telegramId).then(setAvatarUrl).catch(() => {});
+    fetchSettings().then(setSettings).catch(() => {});
+  }, [telegramId]);
+
+  function formatDate(str: string) {
+    return new Date(str).toLocaleDateString('ru-RU', {
+      day: 'numeric', month: 'long', year: 'numeric',
+    });
+  }
+
+  function getBalanceValue() {
+    const bal = parseFloat(user.balance);
+    const dep = parseFloat(user.totalDeposit);
+    if (bal > 0) return `${bal.toLocaleString('ru-RU')} ₽`;
+    if (dep > 0) return `${dep.toLocaleString('ru-RU')} ₽`;
+    return '—';
+  }
+
+  async function handleRefresh() {
+    if (refreshCooldown || refreshing) return;
+    setRefreshing(true);
+    setRotation((r) => r + 360);
     try {
-      const updated = await verifyOnewinId(telegramId, onewinInput.trim());
+      const updated = await refreshUserStats(telegramId);
       onUserUpdate(updated);
-      setSuccess(true);
-    } catch (err: any) {
-      setError(err.response?.data?.error ?? 'Ошибка привязки');
+      showToast('Данные обновлены', 'success');
+    } catch {
+      showToast('Ошибка обновления', 'error');
     } finally {
-      setLoading(false);
+      setRefreshing(false);
+      setRefreshCooldown(true);
+      setTimeout(() => setRefreshCooldown(false), 30000);
     }
   }
 
+  async function handleVerify() {
+    if (!onewinInput.trim()) return;
+    setVerifyLoading(true);
+    setVerifyError('');
+    try {
+      const updated = await verifyOnewinId(telegramId, onewinInput.trim());
+      onUserUpdate(updated);
+      setEditingOnewin(false);
+      setOnewinInput('');
+      showToast('1win ID привязан!', 'success');
+    } catch (err: any) {
+      setVerifyError(err.response?.data?.error ?? 'Ошибка привязки');
+    } finally {
+      setVerifyLoading(false);
+    }
+  }
+
+  async function copyReferral() {
+    if (!settings?.referralUrl) return;
+    try {
+      await navigator.clipboard.writeText(settings.referralUrl);
+      showToast('Ссылка скопирована!', 'success');
+    } catch {
+      showToast('Не удалось скопировать', 'error');
+    }
+  }
+
+  function openReferral() {
+    if (settings?.referralUrl) WebApp.openLink(settings.referralUrl);
+  }
+
+  const showOnewinForm = editingOnewin || !user.onewinId;
+
   return (
-    <div style={pageStyle}>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={cardStyle}>
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <div style={{ fontSize: 48, marginBottom: 8 }}>👤</div>
-          <StatusBadge status={user.status} />
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+      style={{ minHeight: '100vh', background: colors.bg, paddingBottom: 90, overflowY: 'auto' }}
+    >
+      {/* ── Header ── */}
+      <div style={{
+        padding: '28px 20px 20px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 10,
+        position: 'relative',
+      }}>
+        {/* Refresh button */}
+        <motion.button
+          animate={{ rotate: rotation }}
+          transition={{ duration: 0.6, ease: 'easeInOut' }}
+          onClick={handleRefresh}
+          style={{
+            position: 'absolute', right: 20, top: 28,
+            width: 38, height: 38, borderRadius: '50%',
+            background: 'rgba(245,166,35,0.1)',
+            border: `1px solid rgba(245,166,35,0.25)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: refreshCooldown ? 'not-allowed' : 'pointer',
+            opacity: refreshCooldown ? 0.35 : 1,
+          }}
+        >
+          <RefreshCw size={16} color={colors.amber} />
+        </motion.button>
+
+        {/* Avatar */}
+        <div style={{
+          width: 80, height: 80, borderRadius: '50%',
+          border: `2px solid ${colors.amber}`,
+          boxShadow: glow.amber,
+          overflow: 'hidden',
+          background: colors.navy,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {avatarUrl
+            ? <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : <UserIcon size={36} color={colors.textMuted} />
+          }
         </div>
 
-        <Row label="Telegram ID" value={user.telegramId} />
-        <Row label="1win ID" value={user.onewinId ?? '—'} />
-        <Row label="Депозитов" value={String(user.depositCount)} />
-        <Row label="Сумма депозитов" value={`$${parseFloat(user.totalDeposit).toFixed(2)}`} />
-        <Row label="Сигналов получено" value={String(user.signalsUsed)} />
+        {/* Name */}
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ color: colors.text, fontWeight: 700, fontSize: 18 }}>{displayName}</div>
+          {tgUser?.username && (
+            <div style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>@{tgUser.username}</div>
+          )}
+        </div>
 
-        {!user.onewinId && (
-          <div style={{ marginTop: 24 }}>
-            <p style={{ color: '#aaa', fontSize: 13, marginBottom: 10 }}>
-              Введи свой ID с 1win для подтверждения:
-            </p>
+        <StatusBadge status={user.status} />
+      </div>
+
+      <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+        {/* ── Info Grid ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+
+          <InfoCard icon={<Hash size={15} color={colors.cyan} />} label="Telegram ID" value={user.telegramId} />
+
+          {/* 1win ID */}
+          <div style={{
+            background: gradient.card,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.lg,
+            padding: '12px 14px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <Gamepad2 size={15} color={colors.amber} />
+              <span style={{ color: colors.textMuted, fontSize: 11, fontWeight: 600 }}>1win ID</span>
+            </div>
+            {user.onewinId ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ color: colors.text, fontSize: 14, fontWeight: 700 }}>{user.onewinId}</span>
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setEditingOnewin(true)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, lineHeight: 0 }}
+                >
+                  <Edit3 size={13} color={colors.textMuted} />
+                </motion.button>
+              </div>
+            ) : (
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setEditingOnewin(true)}
+                style={{
+                  padding: '4px 10px',
+                  background: 'rgba(245,166,35,0.12)',
+                  border: `1px solid rgba(245,166,35,0.3)`,
+                  borderRadius: radius.full,
+                  color: colors.amber,
+                  fontSize: 11, fontWeight: 700,
+                  cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
+                }}
+              >
+                + Привязать
+              </motion.button>
+            )}
+          </div>
+
+          {/* Balance */}
+          <div style={{
+            background: gradient.cardAmber,
+            border: `1px solid rgba(245,166,35,0.25)`,
+            borderRadius: radius.lg,
+            padding: '12px 14px',
+            gridColumn: '1 / -1',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <Wallet size={15} color={colors.success} />
+              <span style={{ color: colors.textMuted, fontSize: 11, fontWeight: 600 }}>Баланс / Пополнено</span>
+            </div>
+            <div style={{
+              color: colors.amber, fontSize: 24, fontWeight: 800,
+              textShadow: `0 0 12px rgba(245,166,35,0.4)`,
+              letterSpacing: -0.5,
+            }}>
+              {getBalanceValue()}
+            </div>
+          </div>
+
+          <InfoCard icon={<TrendingUp size={15} color={colors.cyan} />} label="Депозитов" value={String(user.depositCount)} />
+          <InfoCard
+            icon={<DollarSign size={15} color={colors.amber} />}
+            label="Пополнено"
+            value={`${parseFloat(user.totalDeposit).toLocaleString('ru-RU')} ₽`}
+          />
+          <InfoCard icon={<Zap size={15} color={colors.amber} />} label="Сигналов" value={String(user.signalsUsed)} />
+          <div style={{
+            background: gradient.card,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.lg,
+            padding: '12px 14px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <Shield size={15} color={colors.cyan} />
+              <span style={{ color: colors.textMuted, fontSize: 11, fontWeight: 600 }}>Статус</span>
+            </div>
+            <StatusBadge status={user.status} />
+          </div>
+
+          <InfoCard
+            icon={<Calendar size={15} color={colors.textMuted} />}
+            label="В боте с"
+            value={formatDate(user.createdAt)}
+            small
+          />
+        </div>
+
+        {/* ── 1win ID Form ── */}
+        {showOnewinForm && (
+          <GlowCard variant="default">
+            <div style={{ color: colors.text, fontWeight: 700, fontSize: 14, marginBottom: 6 }}>
+              {user.onewinId ? 'Изменить 1win ID' : 'Привязать 1win ID'}
+            </div>
+            <div style={{ color: colors.textMuted, fontSize: 12, marginBottom: 12 }}>
+              Найди ID в личном кабинете 1win → Профиль
+            </div>
             <input
               value={onewinInput}
               onChange={(e) => setOnewinInput(e.target.value)}
-              placeholder="Твой 1win ID"
-              style={inputStyle}
+              placeholder="Введи 1win ID"
+              style={{
+                width: '100%',
+                padding: '12px 14px',
+                background: 'rgba(255,255,255,0.05)',
+                border: `1px solid ${verifyError ? colors.danger : colors.border}`,
+                borderRadius: radius.md,
+                color: colors.text,
+                fontSize: 16,
+                fontFamily: "'Exo 2', sans-serif",
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
             />
-            {error && <p style={{ color: '#ff4444', fontSize: 13, marginTop: 6 }}>{error}</p>}
-            {success && <p style={{ color: '#00ff88', fontSize: 13, marginTop: 6 }}>✅ ID подтверждён!</p>}
-            <div style={{ marginTop: 12 }}>
-              <GlowButton onClick={handleVerify} disabled={loading} fullWidth>
-                {loading ? 'Проверяем...' : 'Подтвердить ID'}
-              </GlowButton>
+            {verifyError && (
+              <div style={{ color: colors.danger, fontSize: 12, marginTop: 6 }}>{verifyError}</div>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleVerify}
+                disabled={verifyLoading}
+                style={{
+                  flex: 1, padding: '12px',
+                  background: verifyLoading ? colors.border : gradient.amber,
+                  border: 'none', borderRadius: radius.md,
+                  color: '#000', fontWeight: 700, fontSize: 14,
+                  cursor: verifyLoading ? 'not-allowed' : 'pointer',
+                  fontFamily: "'Exo 2', sans-serif",
+                }}
+              >
+                {verifyLoading ? 'Проверяем...' : 'Подтвердить'}
+              </motion.button>
+              {editingOnewin && (
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => { setEditingOnewin(false); setVerifyError(''); setOnewinInput(''); }}
+                  style={{
+                    padding: '12px 16px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: `1px solid ${colors.border}`, borderRadius: radius.md,
+                    color: colors.textMuted, fontWeight: 600, fontSize: 14,
+                    cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
+                  }}
+                >
+                  Отмена
+                </motion.button>
+              )}
             </div>
-          </div>
+          </GlowCard>
         )}
-      </motion.div>
-    </div>
+
+        {/* ── Referral Link ── */}
+        {settings?.referralUrl && (
+          <GlowCard variant="default">
+            <div style={{ color: colors.textMuted, fontSize: 12, marginBottom: 6 }}>
+              Реферальная ссылка на 1win
+            </div>
+            <div style={{
+              color: colors.text, fontSize: 12, fontWeight: 600,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              marginBottom: 12, opacity: 0.7,
+            }}>
+              {settings.referralUrl}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={openReferral}
+                style={{
+                  flex: 1, padding: '10px',
+                  background: gradient.amber,
+                  border: 'none', borderRadius: radius.md,
+                  color: '#000', fontWeight: 700, fontSize: 13,
+                  cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+              >
+                <ExternalLink size={14} /> Открыть
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={copyReferral}
+                style={{
+                  flex: 1, padding: '10px',
+                  background: 'rgba(245,166,35,0.1)',
+                  border: `1px solid rgba(245,166,35,0.3)`, borderRadius: radius.md,
+                  color: colors.amber, fontWeight: 700, fontSize: 13,
+                  cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+              >
+                <Copy size={14} /> Скопировать
+              </motion.button>
+            </div>
+          </GlowCard>
+        )}
+
+      </div>
+    </motion.div>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+interface InfoCardProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  small?: boolean;
+}
+
+function InfoCard({ icon, label, value, small }: InfoCardProps) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-      <span style={{ color: '#888', fontSize: 14 }}>{label}</span>
-      <span style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>{value}</span>
+    <div style={{
+      background: gradient.card,
+      border: `1px solid ${colors.border}`,
+      borderRadius: radius.lg,
+      padding: '12px 14px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+        {icon}
+        <span style={{ color: colors.textMuted, fontSize: 11, fontWeight: 600 }}>{label}</span>
+      </div>
+      <div style={{
+        color: colors.text,
+        fontSize: small ? 11 : 14,
+        fontWeight: 700,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}>
+        {value}
+      </div>
     </div>
   );
 }
-
-const pageStyle: React.CSSProperties = { padding: '16px 16px 100px' };
-
-const cardStyle: React.CSSProperties = {
-  background: 'linear-gradient(135deg, #0f0f2a, #1a1a3a)',
-  border: '1px solid rgba(0,255,136,0.15)',
-  borderRadius: 20,
-  padding: 24,
-};
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '14px',
-  background: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(0,255,136,0.3)',
-  borderRadius: 12,
-  color: '#fff',
-  fontSize: 16,
-  fontFamily: "'Exo 2', sans-serif",
-  outline: 'none',
-};
