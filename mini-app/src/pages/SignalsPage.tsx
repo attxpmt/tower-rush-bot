@@ -328,7 +328,7 @@ function GameScene({ phase, isHoisting, isBlockFalling }: {
             src="/dom.webp" alt=""
             style={{
               position: 'absolute',
-              bottom: '22%',
+              bottom: '30%',
               left: '50%',
               width: '52%',
               x: '-50%',
