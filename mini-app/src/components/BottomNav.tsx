@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, BookOpen, Zap, User, Settings } from 'lucide-react';
+import { Home, BookOpen, Zap, User, Settings2 } from 'lucide-react';
 import { Tab, UserStatus } from '../types';
 
 interface Props {
@@ -15,7 +15,7 @@ const LEFT_TABS: { id: Tab; label: string; Icon: React.FC<any> }[] = [
 
 const RIGHT_TABS: { id: Tab; label: string; Icon: React.FC<any> }[] = [
   { id: 'profile', label: 'Профиль', Icon: User },
-  { id: 'settings', label: 'Настройки', Icon: Settings },
+  { id: 'settings', label: 'Настройки', Icon: Settings2 },
 ];
 
 export default function BottomNav({ active, onTabChange, status }: Props) {
@@ -36,13 +36,8 @@ export default function BottomNav({ active, onTabChange, status }: Props) {
         style={signalsBtnStyle(active === 'signals', signalsLocked)}
         onClick={() => onTabChange('signals')}
       >
-        {signalsLocked
-          ? <Settings size={22} strokeWidth={1.8} />
-          : <Zap size={26} strokeWidth={2.5} fill={active === 'signals' ? '#050b18' : 'none'} />
-        }
-        <span style={{ fontSize: 10, marginTop: 3, fontWeight: 700 }}>
-          {signalsLocked ? 'Заблок.' : 'Сигналы'}
-        </span>
+          <Zap size={26} strokeWidth={2.5} fill={active === 'signals' ? '#050b18' : 'none'} />
+        <span style={{ fontSize: 10, marginTop: 3, fontWeight: 700 }}>Сигналы</span>
       </button>
 
       {RIGHT_TABS.map(({ id, label, Icon }) => (
