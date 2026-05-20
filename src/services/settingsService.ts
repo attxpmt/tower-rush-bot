@@ -14,6 +14,7 @@ export async function updateSettings(data: {
   promoCode?: string;
   botName?: string;
   supportContact?: string;
+  botVersion?: string;
 }) {
   return prisma.settings.upsert({
     where: { id: 1 },

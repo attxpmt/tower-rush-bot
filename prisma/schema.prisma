@@ -9,18 +9,21 @@ datasource db {
 }
 
 model User {
-  id           Int       @id @default(autoincrement())
-  telegramId   BigInt    @unique
-  onewinId     String?   @unique
-  status       Status    @default(NEW)
-  hasDeposit   Boolean   @default(false)
-  totalDeposit Decimal   @default(0) @db.Decimal(12, 2)
-  depositCount Int       @default(0)
-  signalsUsed  Int       @default(0)
-  blockedAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  signals      Signal[]
+  id              Int       @id @default(autoincrement())
+  telegramId      BigInt    @unique
+  onewinId        String?   @unique
+  status          Status    @default(NEW)
+  hasDeposit      Boolean   @default(false)
+  totalDeposit    Decimal   @default(0) @db.Decimal(12, 2)
+  depositCount    Int       @default(0)
+  signalsUsed     Int       @default(0)
+  balance         Decimal   @default(0) @db.Decimal(12, 2)
+  withdrawalTotal Decimal   @default(0) @db.Decimal(12, 2)
+  lastBalanceAt   DateTime?
+  blockedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  signals         Signal[]
 }
 
 model Postback {
@@ -56,6 +59,7 @@ model Settings {
   promoCode      String @default("")
   botName        String @default("Tower Rush")
   supportContact String @default("")
+  botVersion     String @default("1.0.0")
 }
 
 model Broadcast {
