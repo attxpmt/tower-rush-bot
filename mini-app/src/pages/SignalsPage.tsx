@@ -288,7 +288,7 @@ function GameScene({ phase, isHoisting, isBlockFalling }: {
         src="/kran-new.webp" alt=""
         style={{
           position: 'absolute', top: 0, left: '50%',
-          width: '65%',
+          width: '50%',
           transformOrigin: '50% 0%',
           x: '-50%',
           zIndex: 4,
@@ -334,9 +334,9 @@ function GameScene({ phase, isHoisting, isBlockFalling }: {
             src="/dom.webp" alt=""
             style={{
               position: 'absolute',
-              bottom: '25%',
+              bottom: '46%',
               left: '50%',
-              width: '48%',
+              width: '52%',
               x: '-50%',
               zIndex: 5,
               transformOrigin: '50% 100%',
