@@ -1,6 +1,7 @@
 export type UserStatus = 'NEW' | 'REGISTERED' | 'DEPOSITED' | 'VIP';
 export type Strategy = 'stable' | 'moderate' | 'aggressive';
 export type RiskLevel = 'low' | 'medium' | 'high';
+export type Tab = 'dashboard' | 'signals' | 'profile' | 'training' | 'settings';
 
 export interface User {
   id: number;
@@ -11,7 +12,19 @@ export interface User {
   totalDeposit: string;
   depositCount: number;
   signalsUsed: number;
+  balance: string;
+  withdrawalTotal: string;
+  lastBalanceAt: string | null;
   createdAt: string;
+}
+
+export interface Settings {
+  referralUrl: string;
+  channelUrl: string;
+  promoCode: string;
+  botName: string;
+  supportContact: string;
+  botVersion: string;
 }
 
 export interface Signal {
