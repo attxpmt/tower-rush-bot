@@ -131,60 +131,30 @@ export default function SignalsPage({ user, telegramId }: Props) {
   const calculatedBet = riskNum > 0 ? Math.round(riskNum * BET_MULT[strategy]) : null;
 
   return (
-    <div style={{ position: 'relative', height: 'calc(100vh - 80px)', overflow: 'hidden' }}>
+    // Outer container — position: relative so fullscreen overlays anchor here
+    <div style={{ position: 'relative', height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-      {/* ── Game scene — always fills the full fixed container ── */}
-      <GameScene
-        phase={phase}
-        isHoisting={isHoisting}
-        isBlockFalling={isBlockFalling}
-      />
-
-      {(phase === 'playing' || phase === 'analyzing' || phase === 'result') && (
-        <TopPanel wins={sessionWins} losses={sessionLosses} rounds={sessionRounds} />
-      )}
-
-      <AnimatePresence>
-        {phase === 'locked' && (
-          <LockedOverlay key="locked" onOpen={() => settings?.referralUrl && WebApp.openLink(settings.referralUrl)} />
+      {/* ── Game area — flex:1, height is STABLE (always total minus 136px) ── */}
+      <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
+        <GameScene
+          phase={phase}
+          isHoisting={isHoisting}
+          isBlockFalling={isBlockFalling}
+        />
+        {(phase === 'playing' || phase === 'analyzing' || phase === 'result') && (
+          <TopPanel wins={sessionWins} losses={sessionLosses} rounds={sessionRounds} />
         )}
-      </AnimatePresence>
+      </div>
 
-      <AnimatePresence>
-        {phase === 'prepare' && (
-          <PrepareOverlay
-            key="prepare"
-            strategy={strategy}
-            riskAmount={riskAmount}
-            onRiskAmountChange={setRiskAmount}
-            onStrategyChange={setStrategy}
-            onStart={startSession}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {phase === 'analyzing' && (
-          <AnalyzingOverlay key="analyzing" progress={analysisProgress} />
-        )}
-      </AnimatePresence>
-
-      {/* ── Button strip — absolute at bottom so game area stays full height ── */}
-      <AnimatePresence>
+      {/* ── Button strip — fixed 136px, ALWAYS rendered, keeps game area height stable ── */}
+      <div style={{
+        flexShrink: 0, height: 136,
+        background: colors.bg,
+        padding: '12px 16px 16px',
+        display: 'flex', flexDirection: 'column', gap: 8,
+      }}>
         {phase === 'playing' && (
-          <motion.div
-            key="play-btns"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0,
-              background: colors.bg,
-              padding: '12px 16px 16px',
-              display: 'flex', flexDirection: 'column', gap: 8,
-              zIndex: 10,
-            }}
-          >
+          <>
             {canGetSignal ? (
               <motion.button
                 whileTap={{ scale: 0.97 }}
@@ -225,11 +195,36 @@ export default function SignalsPage({ user, telegramId }: Props) {
             >
               Завершить игру
             </motion.button>
-          </motion.div>
+          </>
+        )}
+      </div>
+
+      {/* ── Fullscreen overlays — anchored to outer container, cover game+buttons ── */}
+      <AnimatePresence>
+        {phase === 'locked' && (
+          <LockedOverlay key="locked" onOpen={() => settings?.referralUrl && WebApp.openLink(settings.referralUrl)} />
         )}
       </AnimatePresence>
 
-      {/* ── Result card — slides up over everything ── */}
+      <AnimatePresence>
+        {phase === 'prepare' && (
+          <PrepareOverlay
+            key="prepare"
+            strategy={strategy}
+            riskAmount={riskAmount}
+            onRiskAmountChange={setRiskAmount}
+            onStrategyChange={setStrategy}
+            onStart={startSession}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {phase === 'analyzing' && (
+          <AnalyzingOverlay key="analyzing" progress={analysisProgress} />
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {phase === 'result' && signal && (
           <ResultCard
@@ -333,7 +328,7 @@ function GameScene({ phase, isHoisting, isBlockFalling }: {
             src="/dom.webp" alt=""
             style={{
               position: 'absolute',
-              bottom: '42%',
+              bottom: '41%',
               left: '50%',
               width: '52%',
               x: '-50%',
