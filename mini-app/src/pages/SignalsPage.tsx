@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Lock, RefreshCw, RotateCcw } from 'lucide-react';
+import { Zap, Lock } from 'lucide-react';
 import WebApp from '@twa-dev/sdk';
 import { User, Signal, Strategy, Settings } from '../types';
 import { generateSignal, fetchSettings } from '../api';
@@ -14,74 +14,85 @@ interface Props {
 
 type Phase = 'locked' | 'prepare' | 'playing' | 'analyzing' | 'result';
 
+const MAX_SIGNALS = 6;
+const BLOCK_SHIFT_PX = 46;
+
 const STRATEGIES: { id: Strategy; label: string; desc: string; color: string }[] = [
-  { id: 'stable',     label: 'Стабильная',  desc: '×1.2–2.0', color: '#00d4ff' },
-  { id: 'moderate',   label: 'Умеренная',   desc: '×1.5–4.0', color: '#f5a623' },
-  { id: 'aggressive', label: 'Агрессивная', desc: '×2.0–9.0', color: '#ff4444' },
+  { id: 'stable',     label: 'Стабильная',  desc: 'Крупная ставка · мало этажей',    color: '#00d4ff' },
+  { id: 'moderate',   label: 'Умеренная',   desc: 'Средняя ставка · средне этажей',  color: '#f5a623' },
+  { id: 'aggressive', label: 'Агрессивная', desc: 'Малая ставка · много этажей',     color: '#ff4444' },
 ];
 
-const ANALYSIS_LINES = [
-  '🔍 Анализирую статистику раундов...',
-  '📊 Вычисляю паттерны игры...',
-  '⚡ Калибрую коэффициент...',
+const BET_MULT: Record<Strategy, number> = { stable: 0.5, moderate: 0.35, aggressive: 0.25 };
+
+const ANALYSIS_STEPS = [
+  { emoji: '🔍', label: 'Анализирую статистику раундов' },
+  { emoji: '📊', label: 'Вычисляю паттерны игры' },
+  { emoji: '⚡', label: 'Калибрую коэффициент' },
 ];
 
-function delay(ms: number) {
-  return new Promise<void>((r) => setTimeout(r, ms));
-}
+function delay(ms: number) { return new Promise<void>((r) => setTimeout(r, ms)); }
 
 export default function SignalsPage({ user, telegramId }: Props) {
   const isUnlocked = user.status === 'DEPOSITED' || user.status === 'VIP';
 
   const [phase, setPhase] = useState<Phase>(isUnlocked ? 'prepare' : 'locked');
   const [strategy, setStrategy] = useState<Strategy>('moderate');
+  const [riskAmount, setRiskAmount] = useState('');
   const [signal, setSignal] = useState<Signal | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [sessionRounds, setSessionRounds] = useState(0);
   const [sessionWins, setSessionWins] = useState(0);
   const [sessionLosses, setSessionLosses] = useState(0);
-  const [analysisStep, setAnalysisStep] = useState(0);
-  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [analysisProgress, setAnalysisProgress] = useState([0, 0, 0]);
   const [confidence, setConfidence] = useState(85);
+  const [sceneOffset, setSceneOffset] = useState(0);
+  const [isHoisting, setIsHoisting] = useState(false);
+  const [isBlockFalling, setIsBlockFalling] = useState(false);
   const { showToast } = useToast();
 
-  useEffect(() => {
-    fetchSettings().then(setSettings).catch(() => {});
-  }, []);
+  useEffect(() => { fetchSettings().then(setSettings).catch(() => {}); }, []);
+
+  const blockCount = sessionRounds;
+  const canGetSignal = blockCount < MAX_SIGNALS;
 
   async function runAnalysis(): Promise<void> {
-    setAnalysisStep(0);
-    setAnalysisProgress(0);
-    for (let i = 1; i <= 3; i++) {
-      await delay(700);
-      setAnalysisStep(i);
+    const progs = [0, 0, 0];
+    for (let i = 0; i < 3; i++) {
+      await delay(i === 0 ? 100 : 250);
+      const start = Date.now();
+      const dur = 750 + i * 150;
+      await new Promise<void>((resolve) => {
+        const tick = () => {
+          const pct = Math.min(100, ((Date.now() - start) / dur) * 100);
+          progs[i] = pct;
+          setAnalysisProgress([...progs]);
+          if (pct < 100) requestAnimationFrame(tick);
+          else resolve();
+        };
+        requestAnimationFrame(tick);
+      });
     }
-    const start = Date.now();
-    const duration = 900;
-    await new Promise<void>((resolve) => {
-      const tick = () => {
-        const pct = Math.min(100, ((Date.now() - start) / duration) * 100);
-        setAnalysisProgress(pct);
-        if (pct < 100) requestAnimationFrame(tick);
-        else resolve();
-      };
-      requestAnimationFrame(tick);
-    });
     await delay(300);
   }
 
   async function handleGetSignal() {
+    if (!canGetSignal) return;
+    setIsHoisting(true);
+    await delay(650);
+    setIsBlockFalling(true);
     setPhase('analyzing');
     try {
-      const [result] = await Promise.all([
-        generateSignal(telegramId, strategy),
-        runAnalysis(),
-      ]);
+      const [result] = await Promise.all([generateSignal(telegramId, strategy), runAnalysis()]);
       setSignal(result);
       setConfidence(70 + (result.id % 26));
+      await delay(300);
+      setIsHoisting(false);
       setPhase('result');
     } catch {
       showToast('Ошибка получения сигнала', 'error');
+      setIsHoisting(false);
+      setIsBlockFalling(false);
       setPhase('playing');
     }
   }
@@ -91,6 +102,9 @@ export default function SignalsPage({ user, telegramId }: Props) {
     setSessionWins(0);
     setSessionLosses(0);
     setSignal(null);
+    setSceneOffset(0);
+    setIsHoisting(false);
+    setIsBlockFalling(false);
     setPhase('playing');
   }
 
@@ -98,6 +112,8 @@ export default function SignalsPage({ user, telegramId }: Props) {
     if (won) setSessionWins((w) => w + 1);
     else setSessionLosses((l) => l + 1);
     setSessionRounds((r) => r + 1);
+    setIsBlockFalling(false);
+    setSceneOffset((o) => o + BLOCK_SHIFT_PX);
     setSignal(null);
     setPhase('playing');
     showToast(won ? 'Победа записана! 🏆' : 'Поражение записано', won ? 'success' : 'error');
@@ -105,29 +121,32 @@ export default function SignalsPage({ user, telegramId }: Props) {
 
   function endSession() {
     setSignal(null);
+    setSceneOffset(0);
+    setIsHoisting(false);
+    setIsBlockFalling(false);
     setPhase('prepare');
   }
 
-  const blockCount = Math.min(sessionRounds, 6);
+  const riskNum = parseFloat(riskAmount) || 0;
+  const calculatedBet = riskNum > 0 ? Math.round(riskNum * BET_MULT[strategy]) : null;
 
   return (
     <div style={{ position: 'relative', height: 'calc(100vh - 80px)', overflow: 'hidden' }}>
+      <GameScene
+        blockCount={blockCount}
+        phase={phase}
+        sceneOffset={sceneOffset}
+        isHoisting={isHoisting}
+        isBlockFalling={isBlockFalling}
+      />
 
-      {/* ── Game Scene (always visible) ── */}
-      <GameScene blockCount={blockCount} phase={phase} />
-
-      {/* ── Top Panel ── */}
       {(phase === 'playing' || phase === 'analyzing' || phase === 'result') && (
         <TopPanel wins={sessionWins} losses={sessionLosses} rounds={sessionRounds} />
       )}
 
-      {/* ── Overlays ── */}
       <AnimatePresence>
         {phase === 'locked' && (
-          <LockedOverlay
-            key="locked"
-            onOpen={() => settings?.referralUrl && WebApp.openLink(settings.referralUrl)}
-          />
+          <LockedOverlay key="locked" onOpen={() => settings?.referralUrl && WebApp.openLink(settings.referralUrl)} />
         )}
       </AnimatePresence>
 
@@ -136,6 +155,8 @@ export default function SignalsPage({ user, telegramId }: Props) {
           <PrepareOverlay
             key="prepare"
             strategy={strategy}
+            riskAmount={riskAmount}
+            onRiskAmountChange={setRiskAmount}
             onStrategyChange={setStrategy}
             onStart={startSession}
           />
@@ -144,11 +165,10 @@ export default function SignalsPage({ user, telegramId }: Props) {
 
       <AnimatePresence>
         {phase === 'analyzing' && (
-          <AnalyzingOverlay key="analyzing" step={analysisStep} progress={analysisProgress} />
+          <AnalyzingOverlay key="analyzing" progress={analysisProgress} />
         )}
       </AnimatePresence>
 
-      {/* ── Get Signal Button ── */}
       <AnimatePresence>
         {phase === 'playing' && (
           <motion.div
@@ -156,56 +176,62 @@ export default function SignalsPage({ user, telegramId }: Props) {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 30 }}
-            style={{
-              position: 'absolute', bottom: 16, left: 16, right: 16,
-              display: 'flex', flexDirection: 'column', gap: 8,
-            }}
+            style={{ position: 'absolute', bottom: 16, left: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 10 }}
           >
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={handleGetSignal}
-              style={{
-                width: '100%', padding: '18px',
-                background: gradient.amber,
-                border: 'none', borderRadius: radius.lg,
-                color: '#000', fontWeight: 800, fontSize: 17,
-                cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                boxShadow: `${glow.amberStrong}, 0 4px 24px rgba(0,0,0,0.6)`,
-                animation: 'pulse-glow 2s ease-in-out infinite',
-              }}
-            >
-              <Zap size={20} fill="#000" /> ПОЛУЧИТЬ СИГНАЛ
-            </motion.button>
+            {canGetSignal ? (
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleGetSignal}
+                style={{
+                  width: '100%', padding: '18px',
+                  background: gradient.amber,
+                  border: 'none', borderRadius: radius.lg,
+                  color: '#000', fontWeight: 800, fontSize: 17,
+                  cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  boxShadow: `${glow.amberStrong}, 0 4px 24px rgba(0,0,0,0.6)`,
+                  animation: 'pulse-glow 2s ease-in-out infinite',
+                }}
+              >
+                <Zap size={20} fill="#000" /> ПОЛУЧИТЬ СИГНАЛ
+              </motion.button>
+            ) : (
+              <div style={{
+                textAlign: 'center', padding: '14px',
+                color: colors.amber, fontSize: 13, fontWeight: 600,
+                background: 'rgba(245,166,35,0.08)', borderRadius: radius.lg,
+                border: `1px solid rgba(245,166,35,0.25)`,
+              }}>
+                Лимит {MAX_SIGNALS} сигналов за сессию достигнут
+              </div>
+            )}
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={endSession}
               style={{
-                width: '100%', padding: '10px',
-                background: 'rgba(0,0,0,0.45)',
-                border: `1px solid rgba(255,255,255,0.12)`,
+                width: '100%', padding: '11px',
+                background: 'rgba(140,80,0,0.3)',
+                border: `1px solid rgba(200,120,0,0.45)`,
                 borderRadius: radius.md,
-                color: colors.textMuted, fontWeight: 600, fontSize: 13,
+                color: '#c88010', fontWeight: 700, fontSize: 13,
                 cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
               }}
             >
-              Завершить сессию
+              Завершить игру
             </motion.button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Result Card ── */}
       <AnimatePresence>
         {phase === 'result' && signal && (
           <ResultCard
             key="result"
             signal={signal}
             confidence={confidence}
+            calculatedBet={calculatedBet}
             onWin={() => recordResult(true)}
             onLoss={() => recordResult(false)}
-            onNew={handleGetSignal}
-            onEnd={endSession}
           />
         )}
       </AnimatePresence>
@@ -213,10 +239,13 @@ export default function SignalsPage({ user, telegramId }: Props) {
   );
 }
 
-// ─── Game Scene ───────────────────────────────────────────────────────────────
+// ─── Game Scene ────────────────────────────────────────────────────────────────
 
-function GameScene({ blockCount, phase }: { blockCount: number; phase: Phase }) {
-  const isShaking = phase === 'analyzing';
+function GameScene({ blockCount, phase, sceneOffset, isHoisting, isBlockFalling }: {
+  blockCount: number; phase: Phase; sceneOffset: number;
+  isHoisting: boolean; isBlockFalling: boolean;
+}) {
+  const isSwinging = phase === 'playing';
 
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
@@ -227,78 +256,113 @@ function GameScene({ blockCount, phase }: { blockCount: number; phase: Phase }) 
       }} />
 
       {/* Cloud 1 */}
-      <motion.img
-        src="/cloud-1.webp" alt=""
+      <motion.img src="/cloud-1.webp" alt=""
         style={{ position: 'absolute', top: '6%', left: '-8%', width: '50%', opacity: 0.9 }}
         animate={{ x: [0, 18, 0] }}
         transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
       />
 
       {/* Cloud 2 */}
-      <motion.img
-        src="/cloud-2.webp" alt=""
+      <motion.img src="/cloud-2.webp" alt=""
         style={{ position: 'absolute', top: '14%', right: '-6%', width: '42%', opacity: 0.8 }}
         animate={{ x: [0, -14, 0] }}
         transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
       />
 
-      {/* Yellow glow (ambient) */}
+      {/* Yellow glow */}
       <img src="/yellow-glow.webp" alt="" style={{
         position: 'absolute', top: '-8%', left: '50%',
         transform: 'translateX(-50%)',
         width: '70%', opacity: 0.3, mixBlendMode: 'screen',
       }} />
 
-      {/* Kran (crane with block) */}
+      {/* Crane — hoists up when signal requested */}
       <motion.img
         src="/kran.webp" alt=""
         style={{
-          position: 'absolute', top: '-1%', left: '50%',
-          transform: 'translateX(-50%)',
+          position: 'absolute', top: '-2%', left: '50%',
           width: '52%',
           transformOrigin: '50% 0%',
+          x: '-50%',
+          zIndex: 4,
         }}
-        animate={isShaking
-          ? { rotate: [-4, 4, -4, 4, 0] }
-          : { rotate: [-2, 2, -2] }
+        animate={
+          isHoisting
+            ? { y: '-130%', rotate: 0 }
+            : isSwinging
+              ? { y: 0, rotate: [-20, 20, -20] }
+              : { y: 0, rotate: [-3, 3, -3] }
         }
-        transition={isShaking
-          ? { duration: 0.4, repeat: 4 }
-          : { duration: 4, repeat: Infinity, ease: 'easeInOut' }
+        transition={
+          isHoisting
+            ? { duration: 0.5, ease: 'easeIn' }
+            : isSwinging
+              ? { rotate: { duration: 2.0, repeat: Infinity, ease: 'easeInOut' }, y: { duration: 0.5, ease: 'easeOut' } }
+              : { rotate: { duration: 5, repeat: Infinity, ease: 'easeInOut' }, y: { duration: 0.5, ease: 'easeOut' } }
         }
       />
 
-      {/* Tower base */}
-      <img src="/basis-tower.webp" alt="" style={{
-        position: 'absolute',
-        bottom: '28%',
-        left: '50%', transform: 'translateX(-50%)',
-        width: '52%',
-      }} />
+      {/* Ground group — translates down as blocks stack */}
+      <motion.div
+        animate={{ y: sceneOffset }}
+        transition={{ duration: 0.8, ease: 'easeInOut' }}
+        style={{ position: 'absolute', inset: 0, zIndex: 2 }}
+      >
+        {/* Street / city foreground */}
+        <img src="/background-front.webp" alt="" style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0,
+          width: '100%', height: '30%',
+          objectFit: 'cover', objectPosition: 'center bottom',
+        }} />
 
-      {/* Stacked blocks */}
-      {Array.from({ length: blockCount }).map((_, i) => (
-        <motion.img
-          key={i}
-          src="/block.webp" alt=""
-          initial={{ y: -80, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.05, type: 'spring', stiffness: 260, damping: 18 }}
-          style={{
-            position: 'absolute',
-            bottom: `calc(28% + 14% + ${i * 9}%)`,
-            left: '50%', transform: 'translateX(-50%)',
-            width: '28%',
-          }}
-        />
-      ))}
+        {/* Tower base — sits on top of street */}
+        <img src="/basis-tower.webp" alt="" style={{
+          position: 'absolute',
+          bottom: '30%',
+          left: '50%', transform: 'translateX(-50%)',
+          width: '52%',
+        }} />
 
-      {/* Street foreground */}
-      <img src="/background-front.webp" alt="" style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        width: '100%', height: '30%',
-        objectFit: 'cover', objectPosition: 'center bottom',
-      }} />
+        {/* Stacked blocks — each 7% apart, no overlap */}
+        {Array.from({ length: blockCount }).map((_, i) => (
+          <motion.img
+            key={i}
+            src="/block.webp" alt=""
+            initial={{ y: -60, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+            style={{
+              position: 'absolute',
+              bottom: `calc(30% + 11% + ${i * 7}%)`,
+              left: '50%', transform: 'translateX(-50%)',
+              width: '30%',
+              zIndex: 3,
+            }}
+          />
+        ))}
+      </motion.div>
+
+      {/* Falling block — outside ground group, fixed screen position */}
+      <AnimatePresence>
+        {isBlockFalling && (
+          <motion.img
+            key="falling-block"
+            src="/block.webp" alt=""
+            style={{
+              position: 'absolute',
+              top: '44%',
+              left: '50%',
+              width: '30%',
+              x: '-50%',
+              zIndex: 5,
+            }}
+            initial={{ y: -580 }}
+            animate={{ y: 0 }}
+            exit={{ opacity: 0, transition: { duration: 0.15 } }}
+            transition={{ type: 'spring', stiffness: 250, damping: 26 }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -309,9 +373,10 @@ function TopPanel({ wins, losses, rounds }: { wins: number; losses: number; roun
   return (
     <div style={{
       position: 'absolute', top: 0, left: 0, right: 0,
-      padding: '12px 16px 20px',
-      background: 'linear-gradient(to bottom, rgba(5,11,24,0.85) 60%, transparent)',
+      padding: '16px 16px 32px',
+      background: 'linear-gradient(to bottom, rgba(5,11,24,0.92) 50%, transparent)',
       display: 'flex', gap: 8, justifyContent: 'center',
+      zIndex: 10,
     }}>
       <StatChip label="Раундов" value={String(rounds)} color={colors.textMuted} />
       <StatChip label="Побед" value={String(wins)} color={colors.success} />
@@ -323,8 +388,8 @@ function TopPanel({ wins, losses, rounds }: { wins: number; losses: number; roun
 function StatChip({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div style={{
-      padding: '5px 12px',
-      background: 'rgba(5,11,24,0.7)',
+      padding: '7px 14px',
+      background: 'rgba(5,11,24,0.8)',
       border: `1px solid rgba(255,255,255,0.1)`,
       borderRadius: radius.full,
       display: 'flex', alignItems: 'center', gap: 5,
@@ -345,8 +410,8 @@ function LockedOverlay({ onOpen }: { onOpen: () => void }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       style={{
-        position: 'absolute', inset: 0,
-        background: 'rgba(5,11,24,0.86)',
+        position: 'absolute', inset: 0, zIndex: 20,
+        background: 'rgba(5,11,24,0.88)',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
         padding: 28, gap: 18,
@@ -365,22 +430,19 @@ function LockedOverlay({ onOpen }: { onOpen: () => void }) {
       >
         <Lock size={38} color={colors.amber} />
       </motion.div>
-
       <div style={{ textAlign: 'center' }}>
         <div style={{ color: colors.text, fontWeight: 800, fontSize: 20, marginBottom: 10 }}>
           Сигналы заблокированы
         </div>
         <div style={{ color: colors.textMuted, fontSize: 14, lineHeight: 1.65 }}>
-          Зарегистрируйся на 1win по нашей ссылке и сделай первый депозит — сигналы разблокируются автоматически
+          Зарегистрируйся на 1win и сделай первый депозит — сигналы разблокируются автоматически
         </div>
       </div>
-
       <motion.button
         whileTap={{ scale: 0.97 }}
         onClick={onOpen}
         style={{
-          padding: '14px 28px',
-          background: gradient.amber,
+          padding: '14px 28px', background: gradient.amber,
           border: 'none', borderRadius: radius.full,
           color: '#000', fontWeight: 800, fontSize: 15,
           cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
@@ -395,8 +457,10 @@ function LockedOverlay({ onOpen }: { onOpen: () => void }) {
 
 // ─── Prepare Overlay ──────────────────────────────────────────────────────────
 
-function PrepareOverlay({ strategy, onStrategyChange, onStart }: {
+function PrepareOverlay({ strategy, riskAmount, onRiskAmountChange, onStrategyChange, onStart }: {
   strategy: Strategy;
+  riskAmount: string;
+  onRiskAmountChange: (v: string) => void;
   onStrategyChange: (s: Strategy) => void;
   onStart: () => void;
 }) {
@@ -407,24 +471,56 @@ function PrepareOverlay({ strategy, onStrategyChange, onStart }: {
       exit={{ opacity: 0, y: 60 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        background: 'linear-gradient(to top, rgba(5,11,24,0.99) 75%, rgba(5,11,24,0.5) 100%)',
-        padding: '28px 16px 24px',
-        display: 'flex', flexDirection: 'column', gap: 16,
+        position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 20,
+        background: 'linear-gradient(to top, rgba(5,11,24,1) 82%, rgba(5,11,24,0.55) 100%)',
+        padding: '22px 16px 20px',
+        display: 'flex', flexDirection: 'column', gap: 14,
       }}
     >
-      <div>
-        <div style={{ color: colors.amber, fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>
-          Выбери стратегию
+      {/* Title */}
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ color: colors.amber, fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 2 }}>
+          Подготовка
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ color: colors.text, fontWeight: 800, fontSize: 18 }}>
+          Формируем стратегию
+        </div>
+      </div>
+
+      {/* Risk amount input */}
+      <div>
+        <div style={{ color: colors.textMuted, fontSize: 12, marginBottom: 6 }}>Сумма для риска (₽)</div>
+        <input
+          type="number"
+          value={riskAmount}
+          onChange={(e) => onRiskAmountChange(e.target.value)}
+          placeholder="Введите сумму..."
+          style={{
+            width: '100%', padding: '13px 14px',
+            background: 'rgba(255,255,255,0.06)',
+            border: `1px solid ${riskAmount ? 'rgba(245,166,35,0.5)' : colors.border}`,
+            borderRadius: radius.md,
+            color: colors.text, fontSize: 16, fontWeight: 700,
+            fontFamily: "'Exo 2', sans-serif",
+            outline: 'none', boxSizing: 'border-box',
+          }}
+        />
+        <div style={{ color: colors.textMuted, fontSize: 11, marginTop: 4 }}>
+          Сумма, которую тебе не жалко потерять за сессию
+        </div>
+      </div>
+
+      {/* Strategy */}
+      <div>
+        <div style={{ color: colors.textMuted, fontSize: 12, marginBottom: 8 }}>Стиль игры</div>
+        <div style={{ display: 'flex', gap: 7 }}>
           {STRATEGIES.map((s) => (
             <motion.button
               key={s.id}
               whileTap={{ scale: 0.96 }}
               onClick={() => onStrategyChange(s.id)}
               style={{
-                flex: 1, padding: '12px 6px',
+                flex: 1, padding: '11px 4px',
                 background: strategy === s.id ? `${s.color}18` : 'rgba(255,255,255,0.04)',
                 border: `1px solid ${strategy === s.id ? s.color : colors.border}`,
                 borderRadius: radius.lg,
@@ -435,18 +531,35 @@ function PrepareOverlay({ strategy, onStrategyChange, onStart }: {
                 transition: 'all 0.15s',
               }}
             >
-              <span style={{ fontWeight: 800, fontSize: 13 }}>{s.label}</span>
-              <span style={{ fontSize: 11, opacity: 0.75 }}>{s.desc}</span>
+              <span style={{ fontWeight: 800, fontSize: 12 }}>{s.label}</span>
+              <span style={{ fontSize: 10, opacity: 0.8, textAlign: 'center', lineHeight: 1.3 }}>{s.desc}</span>
             </motion.button>
           ))}
         </div>
+      </div>
+
+      {/* Brief rules */}
+      <div style={{
+        padding: '10px 12px',
+        background: 'rgba(255,255,255,0.03)',
+        border: `1px solid ${colors.border}`,
+        borderRadius: radius.md,
+        display: 'flex', flexDirection: 'column', gap: 5,
+      }}>
+        {[
+          '⚡ Нажми "Получить сигнал" — бот укажет сколько этажей строить',
+          '🏗 Чем выше башня — тем больше коэффициент и риск',
+          '🛑 Фиксируй результат после каждого раунда',
+        ].map((rule, i) => (
+          <div key={i} style={{ color: colors.textMuted, fontSize: 11, lineHeight: 1.5 }}>{rule}</div>
+        ))}
       </div>
 
       <motion.button
         whileTap={{ scale: 0.97 }}
         onClick={onStart}
         style={{
-          width: '100%', padding: '16px',
+          width: '100%', padding: '15px',
           background: gradient.amber,
           border: 'none', borderRadius: radius.lg,
           color: '#000', fontWeight: 800, fontSize: 16,
@@ -455,7 +568,7 @@ function PrepareOverlay({ strategy, onStrategyChange, onStart }: {
           boxShadow: glow.amber,
         }}
       >
-        <Zap size={18} fill="#000" /> Начать сессию
+        <Zap size={18} fill="#000" /> Начать играть
       </motion.button>
     </motion.div>
   );
@@ -463,96 +576,80 @@ function PrepareOverlay({ strategy, onStrategyChange, onStart }: {
 
 // ─── Analyzing Overlay ────────────────────────────────────────────────────────
 
-function AnalyzingOverlay({ step, progress }: { step: number; progress: number }) {
+function AnalyzingOverlay({ progress }: { progress: number[] }) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       style={{
-        position: 'absolute', inset: 0,
-        background: 'rgba(5,11,24,0.9)',
+        position: 'absolute', inset: 0, zIndex: 15,
+        background: 'rgba(5,11,24,0.88)',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        padding: 32, gap: 28,
+        padding: '32px 24px', gap: 28,
       }}
     >
-      <motion.div
-        animate={{ scale: [1, 1.12, 1], opacity: [0.7, 1, 0.7] }}
-        transition={{ duration: 1.2, repeat: Infinity }}
-        style={{
-          width: 72, height: 72, borderRadius: '50%',
-          background: 'rgba(245,166,35,0.12)',
-          border: `2px solid rgba(245,166,35,0.45)`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: glow.amber,
-        }}
-      >
-        <Zap size={34} color={colors.amber} fill={colors.amber} />
-      </motion.div>
-
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {ANALYSIS_LINES.map((line, i) => (
-          <AnimatePresence key={i}>
-            {step > i && (
-              <motion.div
-                initial={{ opacity: 0, x: -16 }}
-                animate={{ opacity: 1, x: 0 }}
-                style={{
-                  color: i === step - 1 ? colors.amber : colors.textMuted,
-                  fontSize: 14, fontWeight: 600,
-                  display: 'flex', alignItems: 'center', gap: 10,
-                }}
-              >
-                <div style={{
-                  width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-                  background: i === step - 1 ? colors.amber : colors.success,
-                  boxShadow: `0 0 6px ${i === step - 1 ? colors.amber : colors.success}`,
-                }} />
-                {line}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        ))}
+      <div style={{ color: colors.amber, fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>
+        Анализ данных
       </div>
 
-      <AnimatePresence>
-        {step >= 3 && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ width: '100%' }}>
-            <div style={{
-              height: 6, background: 'rgba(255,255,255,0.08)',
-              borderRadius: 3, overflow: 'hidden',
-            }}>
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {ANALYSIS_STEPS.map((item, i) => (
+          <div key={i}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 16 }}>{item.emoji}</span>
+                <span style={{
+                  color: progress[i] >= 100 ? colors.text : colors.textMuted,
+                  fontSize: 13, fontWeight: 600,
+                }}>
+                  {item.label}
+                </span>
+              </div>
+              <span style={{
+                color: progress[i] >= 100 ? colors.success : colors.amber,
+                fontWeight: 800, fontSize: 13, minWidth: 38, textAlign: 'right',
+              }}>
+                {Math.round(progress[i])}%
+              </span>
+            </div>
+            <div style={{ height: 7, background: 'rgba(255,255,255,0.07)', borderRadius: 4, overflow: 'hidden' }}>
               <div style={{
-                height: '100%', width: `${progress}%`,
-                background: gradient.amber,
-                borderRadius: 3, boxShadow: glow.amberSoft,
-                transition: 'width 0.08s linear',
+                height: '100%',
+                width: `${progress[i]}%`,
+                background: progress[i] >= 100
+                  ? `linear-gradient(90deg, ${colors.success}, #80ffb0)`
+                  : gradient.amber,
+                borderRadius: 4,
+                boxShadow: progress[i] >= 100 ? `0 0 8px ${colors.success}` : glow.amberSoft,
+                transition: 'width 0.05s linear',
               }} />
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        ))}
+      </div>
     </motion.div>
   );
 }
 
 // ─── Result Card ──────────────────────────────────────────────────────────────
 
-function ResultCard({ signal, confidence, onWin, onLoss, onNew, onEnd }: {
+function ResultCard({ signal, confidence, calculatedBet, onWin, onLoss }: {
   signal: Signal;
   confidence: number;
+  calculatedBet: number | null;
   onWin: () => void;
   onLoss: () => void;
-  onNew: () => void;
-  onEnd: () => void;
 }) {
   const floors = signal.dominoes;
   const coef = parseFloat(signal.coefficient);
-  const bet = parseFloat(signal.betAmount);
+  const bet = calculatedBet ?? parseFloat(signal.betAmount);
   const profit = bet * (coef - 1);
   const riskColor = { low: colors.success, medium: colors.amber, high: colors.danger }[signal.riskLevel];
   const riskLabel = { low: 'Низкий', medium: 'Средний', high: 'Высокий' }[signal.riskLevel];
+  const confLabel = confidence >= 85 ? '🔥 Высокий' : confidence >= 75 ? '⚡ Средний' : '⚠️ Умеренный';
+  const confColor = confidence >= 85 ? colors.success : confidence >= 75 ? colors.amber : colors.danger;
 
   return (
     <motion.div
@@ -561,96 +658,75 @@ function ResultCard({ signal, confidence, onWin, onLoss, onNew, onEnd }: {
       exit={{ y: '100%' }}
       transition={{ type: 'spring', stiffness: 320, damping: 32 }}
       style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0,
+        position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 20,
         background: 'linear-gradient(to top, #050b18 0%, #0a1628 100%)',
-        border: `1px solid rgba(245,166,35,0.2)`,
+        border: `1px solid rgba(245,166,35,0.25)`,
         borderRadius: '20px 20px 0 0',
-        padding: '16px 16px 24px',
-        boxShadow: '0 -10px 50px rgba(0,0,0,0.7)',
+        padding: '14px 16px 24px',
+        boxShadow: '0 -12px 50px rgba(0,0,0,0.8)',
       }}
     >
       {/* Handle */}
-      <div style={{
-        width: 40, height: 4, borderRadius: 2,
-        background: 'rgba(255,255,255,0.15)',
-        margin: '0 auto 14px',
-      }} />
+      <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.15)', margin: '0 auto 12px' }} />
 
-      {/* Header */}
+      {/* Header — floors number */}
       <div style={{ textAlign: 'center', marginBottom: 14 }}>
-        <div style={{ color: colors.amber, fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>
+        <div style={{ color: colors.amber, fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 2 }}>
           Сигнал готов
         </div>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 8 }}>
           <span style={{
-            color: colors.amber, fontSize: 56, fontWeight: 900, lineHeight: 1,
-            textShadow: `0 0 24px rgba(245,166,35,0.65)`,
+            color: colors.amber, fontSize: 80, fontWeight: 900, lineHeight: 1,
+            textShadow: `0 0 30px rgba(245,166,35,0.75), 0 0 70px rgba(245,166,35,0.35)`,
           }}>
             {floors}
           </span>
-          <span style={{ color: colors.textMuted, fontSize: 18, fontWeight: 600 }}>этажей</span>
+          <span style={{ color: colors.textMuted, fontSize: 22, fontWeight: 600 }}>этажей</span>
         </div>
       </div>
 
       {/* Info grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
         <InfoChip label="Коэффициент" value={`×${coef.toFixed(1)}`} valueColor={colors.amber} />
         <InfoChip label="Риск" value={riskLabel} valueColor={riskColor} />
         <InfoChip label="Рек. ставка" value={`${bet.toFixed(0)} ₽`} valueColor={colors.text} />
         <InfoChip label="Ожид. прибыль" value={`+${profit.toFixed(0)} ₽`} valueColor={colors.success} />
       </div>
 
-      {/* Confidence bar */}
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-          <span style={{ color: colors.textMuted, fontSize: 11 }}>Уверенность алгоритма</span>
-          <span style={{ color: colors.amber, fontWeight: 700, fontSize: 11 }}>{confidence}%</span>
+      {/* Confidence block */}
+      <div style={{
+        marginBottom: 14, padding: '12px 14px',
+        background: 'rgba(245,166,35,0.06)',
+        border: `1px solid rgba(245,166,35,0.2)`,
+        borderRadius: radius.md,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <span style={{ color: colors.text, fontSize: 14, fontWeight: 800 }}>Уверенность алгоритма</span>
+          <span style={{ color: colors.amber, fontWeight: 900, fontSize: 20 }}>{confidence}%</span>
         </div>
-        <div style={{ height: 5, background: 'rgba(255,255,255,0.07)', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{ height: 9, background: 'rgba(255,255,255,0.08)', borderRadius: 5, overflow: 'hidden', marginBottom: 6 }}>
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${confidence}%` }}
-            transition={{ duration: 0.9, ease: 'easeOut' }}
-            style={{ height: '100%', background: gradient.amber, borderRadius: 3, boxShadow: glow.amberSoft }}
+            transition={{ duration: 1.1, ease: 'easeOut' }}
+            style={{
+              height: '100%', background: gradient.amber, borderRadius: 5,
+              boxShadow: `0 0 10px rgba(245,166,35,0.5)`,
+            }}
           />
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <span style={{ fontSize: 12, color: confColor, fontWeight: 700 }}>{confLabel}</span>
         </div>
       </div>
 
       {/* Record result */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+      <div style={{ display: 'flex', gap: 8 }}>
         <motion.button whileTap={{ scale: 0.97 }} onClick={onWin} style={resultBtn('rgba(0,230,118,0.12)', 'rgba(0,230,118,0.4)', colors.success)}>
           ✓ Победа
         </motion.button>
         <motion.button whileTap={{ scale: 0.97 }} onClick={onLoss} style={resultBtn('rgba(255,68,68,0.1)', 'rgba(255,68,68,0.35)', colors.danger)}>
           ✕ Поражение
-        </motion.button>
-      </div>
-
-      {/* Nav buttons */}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <motion.button
-          whileTap={{ scale: 0.97 }} onClick={onNew}
-          style={{
-            flex: 1, padding: '10px',
-            background: 'rgba(245,166,35,0.08)', border: `1px solid rgba(245,166,35,0.3)`,
-            borderRadius: radius.md, color: colors.amber,
-            fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-          }}
-        >
-          <RefreshCw size={12} /> Новый сигнал
-        </motion.button>
-        <motion.button
-          whileTap={{ scale: 0.97 }} onClick={onEnd}
-          style={{
-            flex: 1, padding: '10px',
-            background: 'rgba(255,255,255,0.04)', border: `1px solid ${colors.border}`,
-            borderRadius: radius.md, color: colors.textMuted,
-            fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-          }}
-        >
-          <RotateCcw size={12} /> Завершить
         </motion.button>
       </div>
     </motion.div>
@@ -671,10 +747,10 @@ function InfoChip({ label, value, valueColor }: { label: string; value: string; 
 
 function resultBtn(bg: string, border: string, color: string): React.CSSProperties {
   return {
-    flex: 1, padding: '13px',
+    flex: 1, padding: '14px',
     background: bg, border: `1px solid ${border}`,
     borderRadius: radius.md, color,
-    fontWeight: 700, fontSize: 14,
+    fontWeight: 700, fontSize: 15,
     cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
   };
 }
