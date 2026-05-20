@@ -1,6 +1,7 @@
 import { Context, Telegraf, Markup } from 'telegraf';
 import { cfg } from '../../config';
 import { E } from '../emoji';
+import prisma from '../../prisma';
 import { getAdminStatsWithPeriod, getAllUsersForExport, StatsPeriod } from '../../services/userService';
 import { getSettings, updateSettings } from '../../services/settingsService';
 import {
@@ -177,6 +178,22 @@ function broadcastKeyboard(bc: BroadcastSetup) {
 // ─── main command ─────────────────────────────────────────────────────────────
 
 const ADMIN_STICKER_ID = 'CAACAgIAAxkBAAFKHWRqDRewA1TVaAusxlUCk3tJ_qbLhgAC70kAAtYSuUgiD-G27Qg7mjsE';
+
+export async function handleGrant(ctx: Context) {
+  if (!isAdmin(ctx)) return ctx.reply('⛔ Доступ запрещён');
+  const args = (ctx.message as any)?.text?.split(' ');
+  const targetId = args?.[1] ? parseInt(args[1], 10) : null;
+  if (!targetId || isNaN(targetId)) {
+    return ctx.reply('Использование: /grant <telegramId>');
+  }
+  const user = await prisma.user.findUnique({ where: { telegramId: BigInt(targetId) } });
+  if (!user) return ctx.reply(`❌ Пользователь ${targetId} не найден в базе`);
+  await prisma.user.update({
+    where: { telegramId: BigInt(targetId) },
+    data: { status: 'DEPOSITED', hasDeposit: true, depositCount: Math.max(user.depositCount, 1) },
+  });
+  return ctx.reply(`✅ Доступ выдан пользователю <code>${targetId}</code>`, { parse_mode: 'HTML' });
+}
 
 export async function handleAdmin(ctx: Context) {
   if (!isAdmin(ctx)) return ctx.reply('⛔ Доступ запрещён');

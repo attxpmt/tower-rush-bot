@@ -3,7 +3,7 @@ import { cfg } from '../config';
 import { E } from './emoji';
 import { handleStart, registerSubscriptionCallbacks } from './commands/start';
 import { handleHelp } from './commands/help';
-import { handleAdmin, registerAdminCallbacks, sendAdminNotification } from './commands/admin';
+import { handleAdmin, handleGrant, registerAdminCallbacks, sendAdminNotification } from './commands/admin';
 import { startBroadcastScheduler } from '../services/broadcastService';
 
 export { sendAdminNotification };
@@ -23,6 +23,7 @@ export function createBot() {
   bot.command('start', handleStart);
   bot.command('help', handleHelp);
   bot.command('admin', handleAdmin);
+  bot.command('grant', handleGrant);
 
   registerAdminCallbacks(bot);
   registerSubscriptionCallbacks(bot);
