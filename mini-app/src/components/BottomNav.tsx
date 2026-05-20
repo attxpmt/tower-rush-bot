@@ -1,4 +1,5 @@
 import React from 'react';
+import { Home, BookOpen, Zap, User, Settings } from 'lucide-react';
 import { Tab, UserStatus } from '../types';
 
 interface Props {
@@ -7,14 +8,14 @@ interface Props {
   status: UserStatus;
 }
 
-const LEFT_TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'dashboard', label: 'Главная', icon: '🏠' },
-  { id: 'training', label: 'Обучение', icon: '📚' },
+const LEFT_TABS: { id: Tab; label: string; Icon: React.FC<any> }[] = [
+  { id: 'dashboard', label: 'Главная', Icon: Home },
+  { id: 'training', label: 'Обучение', Icon: BookOpen },
 ];
 
-const RIGHT_TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'profile', label: 'Профиль', icon: '👤' },
-  { id: 'settings', label: 'Настройки', icon: '⚙️' },
+const RIGHT_TABS: { id: Tab; label: string; Icon: React.FC<any> }[] = [
+  { id: 'profile', label: 'Профиль', Icon: User },
+  { id: 'settings', label: 'Настройки', Icon: Settings },
 ];
 
 export default function BottomNav({ active, onTabChange, status }: Props) {
@@ -23,38 +24,31 @@ export default function BottomNav({ active, onTabChange, status }: Props) {
 
   return (
     <nav style={navStyle}>
-      {/* Left tabs */}
-      {LEFT_TABS.map((tab) => (
-        <button
-          key={tab.id}
-          style={btnStyle(active === tab.id, false)}
-          onClick={() => onTabChange(tab.id)}
-        >
-          <span style={{ fontSize: 20, display: 'block' }}>{tab.icon}</span>
-          <span style={{ fontSize: 10, marginTop: 2 }}>{tab.label}</span>
+      {LEFT_TABS.map(({ id, label, Icon }) => (
+        <button key={id} style={btnStyle(active === id)} onClick={() => onTabChange(id)}>
+          <Icon size={20} strokeWidth={active === id ? 2.5 : 1.8} />
+          <span style={{ fontSize: 10, marginTop: 3 }}>{label}</span>
         </button>
       ))}
 
-      {/* Center — Signals (bigger) */}
+      {/* Signals — центральная увеличенная кнопка */}
       <button
         style={signalsBtnStyle(active === 'signals', signalsLocked)}
         onClick={() => onTabChange('signals')}
       >
-        <span style={{ fontSize: 26, display: 'block' }}>
-          {signalsLocked ? '🔒' : '⚡'}
+        {signalsLocked
+          ? <Settings size={22} strokeWidth={1.8} />
+          : <Zap size={26} strokeWidth={2.5} fill={active === 'signals' ? '#050b18' : 'none'} />
+        }
+        <span style={{ fontSize: 10, marginTop: 3, fontWeight: 700 }}>
+          {signalsLocked ? 'Заблок.' : 'Сигналы'}
         </span>
-        <span style={{ fontSize: 10, marginTop: 2, fontWeight: 700 }}>Сигналы</span>
       </button>
 
-      {/* Right tabs */}
-      {RIGHT_TABS.map((tab) => (
-        <button
-          key={tab.id}
-          style={btnStyle(active === tab.id, false)}
-          onClick={() => onTabChange(tab.id)}
-        >
-          <span style={{ fontSize: 20, display: 'block' }}>{tab.icon}</span>
-          <span style={{ fontSize: 10, marginTop: 2 }}>{tab.label}</span>
+      {RIGHT_TABS.map(({ id, label, Icon }) => (
+        <button key={id} style={btnStyle(active === id)} onClick={() => onTabChange(id)}>
+          <Icon size={20} strokeWidth={active === id ? 2.5 : 1.8} />
+          <span style={{ fontSize: 10, marginTop: 3 }}>{label}</span>
         </button>
       ))}
     </nav>
@@ -77,7 +71,7 @@ const navStyle: React.CSSProperties = {
   height: 60,
 };
 
-function btnStyle(active: boolean, locked: boolean): React.CSSProperties {
+function btnStyle(isActive: boolean): React.CSSProperties {
   return {
     flex: 1,
     display: 'flex',
@@ -87,16 +81,16 @@ function btnStyle(active: boolean, locked: boolean): React.CSSProperties {
     padding: '6px 0',
     background: 'transparent',
     border: 'none',
-    color: active ? '#f5a623' : locked ? '#444' : '#6b7fa3',
+    borderTop: isActive ? '2px solid #f5a623' : '2px solid transparent',
+    color: isActive ? '#f5a623' : '#6b7fa3',
     cursor: 'pointer',
     transition: 'color 0.2s',
-    textShadow: active ? '0 0 8px rgba(245,166,35,0.6)' : 'none',
-    borderTop: active ? '2px solid #f5a623' : '2px solid transparent',
     boxSizing: 'border-box',
+    filter: isActive ? 'drop-shadow(0 0 6px rgba(245,166,35,0.5))' : 'none',
   };
 }
 
-function signalsBtnStyle(active: boolean, locked: boolean): React.CSSProperties {
+function signalsBtnStyle(isActive: boolean, locked: boolean): React.CSSProperties {
   return {
     width: 64,
     height: 64,
@@ -107,23 +101,24 @@ function signalsBtnStyle(active: boolean, locked: boolean): React.CSSProperties 
     justifyContent: 'center',
     marginTop: -24,
     flexShrink: 0,
-    background: active
+    background: isActive
       ? 'linear-gradient(135deg, #f5a623, #ffc84a)'
       : locked
-        ? 'linear-gradient(135deg, #1a2d5a, #0d1b3e)'
+        ? '#0d1b3e'
         : 'linear-gradient(135deg, #1a2d5a, #0f1e3a)',
-    border: active
+    border: isActive
       ? '2px solid #ffc84a'
       : locked
         ? '2px solid #2a3d6a'
         : '2px solid #f5a623',
-    boxShadow: active
-      ? '0 0 24px rgba(245,166,35,0.7)'
+    boxShadow: isActive
+      ? '0 0 28px rgba(245,166,35,0.8)'
       : locked
         ? 'none'
-        : '0 0 16px rgba(245,166,35,0.3)',
-    color: active ? '#050b18' : locked ? '#444' : '#f5a623',
+        : '0 0 16px rgba(245,166,35,0.35)',
+    color: isActive ? '#050b18' : locked ? '#3a5080' : '#f5a623',
     cursor: 'pointer',
     transition: 'all 0.2s',
+    filter: !isActive && !locked ? 'drop-shadow(0 0 8px rgba(245,166,35,0.3))' : 'none',
   };
 }
