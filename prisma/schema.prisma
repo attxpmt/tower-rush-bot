@@ -17,11 +17,12 @@ model User {
   totalDeposit    Decimal   @default(0) @db.Decimal(12, 2)
   depositCount    Int       @default(0)
   signalsUsed     Int       @default(0)
-  balance         Decimal   @default(0) @db.Decimal(12, 2)
-  withdrawalTotal Decimal   @default(0) @db.Decimal(12, 2)
-  lastBalanceAt   DateTime?
-  blockedAt       DateTime?
-  createdAt       DateTime  @default(now())
+  balance             Decimal   @default(0) @db.Decimal(12, 2)
+  withdrawalTotal     Decimal   @default(0) @db.Decimal(12, 2)
+  lastBalanceAt       DateTime?
+  onewinRegisteredAt  DateTime?
+  blockedAt           DateTime?
+  createdAt           DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   signals         Signal[]
 }

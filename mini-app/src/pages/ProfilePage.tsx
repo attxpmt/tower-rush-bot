@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   Hash, Gamepad2, Wallet, TrendingUp, DollarSign,
   Zap, Shield, Calendar, RefreshCw, User as UserIcon,
-  ExternalLink, Copy, Edit3,
+  ExternalLink, Edit3,
 } from 'lucide-react';
 import WebApp from '@twa-dev/sdk';
 import { User, Settings } from '../types';
@@ -162,7 +162,7 @@ export default function ProfilePage({ user, telegramId, onUserUpdate }: Props) {
           )}
         </div>
 
-        <StatusBadge status={user.status} />
+        <StatusBadge status={user.status} depositCount={user.depositCount} />
       </div>
 
       <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -251,13 +251,19 @@ export default function ProfilePage({ user, telegramId, onUserUpdate }: Props) {
               <Shield size={15} color={colors.cyan} />
               <span style={{ color: colors.textMuted, fontSize: 11, fontWeight: 600 }}>Статус</span>
             </div>
-            <StatusBadge status={user.status} />
+            <StatusBadge status={user.status} depositCount={user.depositCount} />
           </div>
 
           <InfoCard
             icon={<Calendar size={15} color={colors.textMuted} />}
             label="В боте с"
             value={formatDate(user.createdAt)}
+            small
+          />
+          <InfoCard
+            icon={<Calendar size={15} color={colors.amber} />}
+            label="На 1win с"
+            value={user.onewinRegisteredAt ? formatDate(user.onewinRegisteredAt) : '—'}
             small
           />
         </div>
@@ -326,48 +332,31 @@ export default function ProfilePage({ user, telegramId, onUserUpdate }: Props) {
           </GlowCard>
         )}
 
-        {/* ── Referral Link ── */}
+        {/* ── 1win Banner ── */}
         {settings?.referralUrl && (
-          <GlowCard variant="default">
-            <div style={{ color: colors.textMuted, fontSize: 12, marginBottom: 6 }}>
-              Реферальная ссылка на 1win
-            </div>
-            <div style={{
-              color: colors.text, fontSize: 12, fontWeight: 600,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              marginBottom: 12, opacity: 0.7,
-            }}>
-              {settings.referralUrl}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={openReferral}
-                style={{
-                  flex: 1, padding: '10px',
-                  background: gradient.amber,
-                  border: 'none', borderRadius: radius.md,
-                  color: '#000', fontWeight: 700, fontSize: 13,
-                  cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                }}
-              >
-                <ExternalLink size={14} /> Открыть
-              </motion.button>
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={copyReferral}
-                style={{
-                  flex: 1, padding: '10px',
-                  background: 'rgba(245,166,35,0.1)',
-                  border: `1px solid rgba(245,166,35,0.3)`, borderRadius: radius.md,
-                  color: colors.amber, fontWeight: 700, fontSize: 13,
-                  cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                }}
-              >
-                <Copy size={14} /> Скопировать
-              </motion.button>
+          <GlowCard variant="amber" onClick={openReferral}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ color: colors.text, fontWeight: 700, fontSize: 15 }}>
+                  Играй на 1win
+                </div>
+                <div style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
+                  Переходи по нашей ссылке
+                </div>
+              </div>
+              <div style={{
+                background: gradient.amber,
+                color: '#000',
+                fontWeight: 800, fontSize: 13,
+                padding: '9px 16px',
+                borderRadius: radius.full,
+                display: 'flex', alignItems: 'center', gap: 6,
+                boxShadow: glow.amber,
+                flexShrink: 0,
+              }}>
+                <ExternalLink size={14} />
+                Перейти
+              </div>
             </div>
           </GlowCard>
         )}

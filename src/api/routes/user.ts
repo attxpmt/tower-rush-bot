@@ -82,6 +82,7 @@ function serializeUser(user: any) {
     totalDeposit: user.totalDeposit.toString(),
     balance: user.balance.toString(),
     withdrawalTotal: user.withdrawalTotal.toString(),
+    onewinRegisteredAt: user.onewinRegisteredAt?.toISOString() ?? null,
   };
 }
 

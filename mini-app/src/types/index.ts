@@ -15,6 +15,7 @@ export interface User {
   balance: string;
   withdrawalTotal: string;
   lastBalanceAt: string | null;
+  onewinRegisteredAt: string | null;
   createdAt: string;
 }
 

@@ -90,15 +90,18 @@ export default function DashboardPage({ user, telegramId, onTabChange, onShowOnb
         alignItems: 'center',
         gap: 6,
       }}>
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {/* Glow behind logo — не касается краёв картинки */}
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 160, height: 120 }}>
+          {/* Glow behind logo */}
           <div style={{
             position: 'absolute',
-            width: '75%',
-            height: '55%',
-            background: 'radial-gradient(ellipse, rgba(245,166,35,0.45) 0%, transparent 70%)',
-            filter: 'blur(18px)',
-            top: '22%',
+            width: 130,
+            height: 70,
+            background: 'rgba(245,166,35,0.5)',
+            borderRadius: '50%',
+            filter: 'blur(28px)',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
             pointerEvents: 'none',
           }} />
           <motion.img
@@ -144,7 +147,7 @@ export default function DashboardPage({ user, telegramId, onTabChange, onShowOnb
                   <div style={{ color: colors.textMuted, fontSize: 12 }}>@{tgUser.username}</div>
                 )}
                 <div style={{ marginTop: 5 }}>
-                  <StatusBadge status={user.status} />
+                  <StatusBadge status={user.status} depositCount={user.depositCount} />
                 </div>
               </div>
             </div>

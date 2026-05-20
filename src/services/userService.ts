@@ -62,16 +62,21 @@ export async function updateUserFromPostback(
   if (eventType === 'registration') {
     return prisma.user.update({
       where: { onewinId },
-      data: { status: user.status === 'NEW' ? 'REGISTERED' : user.status },
+      data: {
+        status: user.status === 'NEW' ? 'REGISTERED' : user.status,
+        onewinRegisteredAt: user.onewinRegisteredAt ?? new Date(),
+      },
     });
   }
 
   if (eventType === 'deposit') {
+    const newDepositCount = user.depositCount + 1;
+    const newStatus = newDepositCount >= 10 ? 'VIP' : (user.status === 'VIP' ? 'VIP' : 'DEPOSITED');
     return prisma.user.update({
       where: { onewinId },
       data: {
         hasDeposit: true,
-        status: user.status !== 'VIP' ? 'DEPOSITED' : 'VIP',
+        status: newStatus,
         depositCount: { increment: 1 },
         totalDeposit: { increment: amount ?? 0 },
       },
