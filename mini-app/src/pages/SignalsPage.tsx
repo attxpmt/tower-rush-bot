@@ -466,30 +466,31 @@ function PrepareOverlay({ strategy, riskAmount, onRiskAmountChange, onStrategyCh
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 60 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 60 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.25 }}
       style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 20,
-        background: 'linear-gradient(to top, rgba(5,11,24,1) 82%, rgba(5,11,24,0.55) 100%)',
-        padding: '22px 16px 20px',
-        display: 'flex', flexDirection: 'column', gap: 14,
+        position: 'absolute', inset: 0, zIndex: 20,
+        background: colors.bg,
+        display: 'flex', flexDirection: 'column',
+        padding: '28px 16px 24px',
+        gap: 20, overflowY: 'auto',
       }}
     >
       {/* Title */}
       <div style={{ textAlign: 'center' }}>
-        <div style={{ color: colors.amber, fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 2 }}>
+        <div style={{ color: colors.amber, fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>
           Подготовка
         </div>
-        <div style={{ color: colors.text, fontWeight: 800, fontSize: 18 }}>
+        <div style={{ color: colors.text, fontWeight: 800, fontSize: 22 }}>
           Формируем стратегию
         </div>
       </div>
 
       {/* Risk amount input */}
       <div>
-        <div style={{ color: colors.textMuted, fontSize: 12, marginBottom: 6 }}>Сумма для риска (₽)</div>
+        <div style={{ color: colors.amber, fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Сумма для риска (₽)</div>
         <input
           type="number"
           value={riskAmount}
@@ -512,27 +513,26 @@ function PrepareOverlay({ strategy, riskAmount, onRiskAmountChange, onStrategyCh
 
       {/* Strategy */}
       <div>
-        <div style={{ color: colors.textMuted, fontSize: 12, marginBottom: 8 }}>Стиль игры</div>
-        <div style={{ display: 'flex', gap: 7 }}>
+        <div style={{ color: colors.amber, fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Стиль игры</div>
+        <div style={{ display: 'flex', gap: 8 }}>
           {STRATEGIES.map((s) => (
             <motion.button
               key={s.id}
               whileTap={{ scale: 0.96 }}
               onClick={() => onStrategyChange(s.id)}
               style={{
-                flex: 1, padding: '11px 4px',
+                flex: 1, padding: '14px 4px',
                 background: strategy === s.id ? `${s.color}18` : 'rgba(255,255,255,0.04)',
                 border: `1px solid ${strategy === s.id ? s.color : colors.border}`,
                 borderRadius: radius.lg,
                 color: strategy === s.id ? s.color : colors.textMuted,
                 cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                fontWeight: 800, fontSize: 13,
                 boxShadow: strategy === s.id ? `0 0 14px ${s.color}35` : 'none',
                 transition: 'all 0.15s',
               }}
             >
-              <span style={{ fontWeight: 800, fontSize: 12 }}>{s.label}</span>
-              <span style={{ fontSize: 10, opacity: 0.8, textAlign: 'center', lineHeight: 1.3 }}>{s.desc}</span>
+              {s.label}
             </motion.button>
           ))}
         </div>
@@ -540,26 +540,28 @@ function PrepareOverlay({ strategy, riskAmount, onRiskAmountChange, onStrategyCh
 
       {/* Brief rules */}
       <div style={{
-        padding: '10px 12px',
+        padding: '12px 14px',
         background: 'rgba(255,255,255,0.03)',
         border: `1px solid ${colors.border}`,
         borderRadius: radius.md,
-        display: 'flex', flexDirection: 'column', gap: 5,
+        display: 'flex', flexDirection: 'column', gap: 7,
       }}>
         {[
           '⚡ Нажми "Получить сигнал" — бот укажет сколько этажей строить',
           '🏗 Чем выше башня — тем больше коэффициент и риск',
           '🛑 Фиксируй результат после каждого раунда',
         ].map((rule, i) => (
-          <div key={i} style={{ color: colors.textMuted, fontSize: 11, lineHeight: 1.5 }}>{rule}</div>
+          <div key={i} style={{ color: colors.textMuted, fontSize: 12, lineHeight: 1.5 }}>{rule}</div>
         ))}
       </div>
+
+      <div style={{ flex: 1 }} />
 
       <motion.button
         whileTap={{ scale: 0.97 }}
         onClick={onStart}
         style={{
-          width: '100%', padding: '15px',
+          width: '100%', padding: '16px',
           background: gradient.amber,
           border: 'none', borderRadius: radius.lg,
           color: '#000', fontWeight: 800, fontSize: 16,
