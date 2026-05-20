@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Settings2, MessageCircle, ExternalLink, Star, LogOut, Server, Code2, Globe } from 'lucide-react';
+import { Settings2, MessageCircle, ExternalLink, Star, LogOut, Server, Code2 } from 'lucide-react';
 import WebApp from '@twa-dev/sdk';
 import { Settings } from '../types';
 import { fetchSettings } from '../api';
@@ -52,9 +52,7 @@ type Lang = 'ru' | 'en';
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [serverOk, setServerOk] = useState<boolean | null>(null);
-  const [lang, setLang] = useState<Lang>('ru');
-
-  const t = I18N[lang];
+  const t = I18N['ru'];
 
   useEffect(() => {
     fetchSettings().then(setSettings).catch(() => {});
@@ -99,48 +97,6 @@ export default function SettingsPage() {
       </div>
 
       <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-        {/* ── Language Toggle ── */}
-        <GlowCard variant="default" padding="12px 16px">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Globe size={16} color={colors.cyan} />
-              <span style={{ color: colors.text, fontWeight: 600, fontSize: 14 }}>{t.language}</span>
-            </div>
-            <div style={{
-              display: 'flex',
-              background: colors.bg,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.full,
-              padding: 3,
-              gap: 2,
-            }}>
-              {(['ru', 'en'] as Lang[]).map((l) => (
-                <motion.button
-                  key={l}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setLang(l)}
-                  style={{
-                    padding: '5px 14px',
-                    borderRadius: radius.full,
-                    border: 'none',
-                    background: lang === l ? gradient.amber : 'transparent',
-                    color: lang === l ? '#000' : colors.textMuted,
-                    fontWeight: 700,
-                    fontSize: 12,
-                    cursor: 'pointer',
-                    fontFamily: "'Exo 2', sans-serif",
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.5,
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {l}
-                </motion.button>
-              ))}
-            </div>
-          </div>
-        </GlowCard>
 
         {/* ── App Info ── */}
         <GlowCard variant="navy" padding="0">
