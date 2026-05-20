@@ -90,19 +90,26 @@ export default function DashboardPage({ user, telegramId, onTabChange, onShowOnb
         alignItems: 'center',
         gap: 6,
       }}>
-        <motion.img
-          src="/logo.webp"
-          alt="Tower Rush"
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: 'easeOut' }}
-          style={{
-            width: 150,
-            height: 'auto',
-            objectFit: 'contain',
-            filter: 'drop-shadow(0 0 24px rgba(245,166,35,0.5)) drop-shadow(0 0 48px rgba(245,166,35,0.2))',
-          }}
-        />
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {/* Glow behind logo — не касается краёв картинки */}
+          <div style={{
+            position: 'absolute',
+            width: '75%',
+            height: '55%',
+            background: 'radial-gradient(ellipse, rgba(245,166,35,0.45) 0%, transparent 70%)',
+            filter: 'blur(18px)',
+            top: '22%',
+            pointerEvents: 'none',
+          }} />
+          <motion.img
+            src="/logo.webp"
+            alt="Tower Rush"
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            style={{ width: 150, height: 'auto', objectFit: 'contain', position: 'relative' }}
+          />
+        </div>
       </div>
 
       <div style={{ padding: '12px 16px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
