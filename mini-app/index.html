@@ -6,10 +6,47 @@
     <title>Tower Rush</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700&display=swap" rel="stylesheet" />
     <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { background: #0a0a1a; color: #fff; font-family: 'Exo 2', sans-serif; overflow-x: hidden; }
+      *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+        background: #050b18;
+        color: #e8edf5;
+        font-family: 'Exo 2', sans-serif;
+        overflow-x: hidden;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      button { font-family: inherit; }
+      input, textarea { font-family: inherit; }
+
+      @keyframes shimmer {
+        0%   { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      @keyframes pulse-glow {
+        0%, 100% { box-shadow: 0 0 8px rgba(245,166,35,0.3); }
+        50%       { box-shadow: 0 0 20px rgba(245,166,35,0.7); }
+      }
+
+      @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50%       { transform: translateY(-6px); }
+      }
+
+      @keyframes fade-in {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      ::-webkit-scrollbar { width: 0; }
     </style>
   </head>
   <body>
