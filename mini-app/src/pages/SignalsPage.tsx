@@ -47,9 +47,17 @@ export default function SignalsPage({ user, telegramId }: Props) {
   const [confidence, setConfidence] = useState(85);
   const [isHoisting, setIsHoisting] = useState(false);
   const [isBlockFalling, setIsBlockFalling] = useState(false);
+  const [stableHeight, setStableHeight] = useState(() => WebApp.viewportStableHeight || window.innerHeight);
   const { showToast } = useToast();
 
   useEffect(() => { fetchSettings().then(setSettings).catch(() => {}); }, []);
+
+  useEffect(() => {
+    const update = () => setStableHeight(WebApp.viewportStableHeight || window.innerHeight);
+    update();
+    WebApp.onEvent('viewportChanged', update);
+    return () => WebApp.offEvent('viewportChanged', update);
+  }, []);
 
   const blockCount = sessionRounds;
   const canGetSignal = blockCount < MAX_SIGNALS;
@@ -132,7 +140,7 @@ export default function SignalsPage({ user, telegramId }: Props) {
 
   return (
     // Outer container — position: relative so fullscreen overlays anchor here
-    <div style={{ position: 'relative', height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', height: stableHeight - 80, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* ── Game area — flex:1, height is STABLE (always total minus 136px) ── */}
       <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
