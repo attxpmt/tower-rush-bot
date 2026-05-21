@@ -32,6 +32,7 @@ model Postback {
   eventType String
   onewinId  String
   amount    Decimal? @db.Decimal(12, 2)
+  txId      String?  @unique
   raw       Json
   createdAt DateTime @default(now())
 
@@ -51,6 +52,7 @@ model Signal {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([createdAt])
 }
 
 model Settings {

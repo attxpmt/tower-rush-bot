@@ -20,6 +20,39 @@ export function categoryLabel(category: BroadcastCategory): string {
   return { new: 'Новые пользователи', registered: 'Зарегистрировались (без депозита)', deposited: 'Сделали депозит' }[category];
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Одна отправка сообщения. При 429 (превышен лимит Telegram) ждёт
+// retry_after секунд и повторяет один раз.
+async function sendToUser(
+  telegram: Telegraf['telegram'],
+  chatId: string,
+  message: string,
+  photoFileId: string | undefined
+): Promise<void> {
+  const send = () => {
+    if (photoFileId) {
+      return telegram.sendPhoto(chatId, photoFileId, {
+        caption: message || undefined,
+        parse_mode: 'HTML',
+      });
+    }
+    return telegram.sendMessage(chatId, message, { parse_mode: 'HTML' });
+  };
+
+  try {
+    await send();
+  } catch (err: any) {
+    if (err?.response?.error_code === 429) {
+      const retryAfter = err.response.parameters?.retry_after ?? 1;
+      await sleep((retryAfter + 1) * 1000);
+      await send();
+    } else {
+      throw err;
+    }
+  }
+}
+
 export async function runBroadcast(
   telegram: Telegraf['telegram'],
   category: BroadcastCategory,
@@ -32,20 +65,15 @@ export async function runBroadcast(
   let sentCount = 0;
   let failCount = 0;
 
+  // Нечего отправлять (пустое сообщение без фото) — выходим сразу
+  if (!photoFileId && !message.trim()) {
+    return { sentCount: total, failCount: 0, totalCount: total };
+  }
+
   for (let i = 0; i < users.length; i++) {
     const telegramId = users[i].telegramId.toString();
     try {
-      if (photoFileId) {
-        await telegram.sendPhoto(telegramId, photoFileId, {
-          caption: message || undefined,
-          parse_mode: 'HTML',
-        });
-      } else if (message.trim()) {
-        await telegram.sendMessage(telegramId, message, { parse_mode: 'HTML' });
-      } else {
-        sentCount++;
-        continue;
-      }
+      await sendToUser(telegram, telegramId, message, photoFileId);
       sentCount++;
     } catch (err: any) {
       failCount++;
@@ -60,7 +88,7 @@ export async function runBroadcast(
 
     // Rate limit: pause every 25 messages
     if (i > 0 && (i + 1) % 25 === 0 && i < users.length - 1) {
-      await new Promise((r) => setTimeout(r, 1000));
+      await sleep(1000);
     }
   }
 
@@ -86,7 +114,15 @@ export async function scheduleBroadcast(data: {
 }
 
 export function startBroadcastScheduler(bot: Telegraf) {
+  // При старте процесса ни одна рассылка не может выполняться (они идут
+  // в этом же процессе). Значит processing:true — это «зависшая» рассылка
+  // после краша/передеплоя. Сбрасываем, чтобы она запустилась снова.
+  prisma.broadcast
+    .updateMany({ where: { processing: true, sentAt: null }, data: { processing: false } })
+    .catch((err) => console.error('[broadcast] reset stuck failed:', err));
+
   setInterval(async () => {
+    try {
     const pending = await prisma.broadcast.findMany({
       where: {
         scheduledAt: { lte: new Date() },
@@ -116,6 +152,9 @@ export function startBroadcastScheduler(bot: Telegraf) {
           data: { processing: false },
         });
       }
+    }
+    } catch (err) {
+      console.error('[broadcast] scheduler tick failed:', err);
     }
   }, 60000);
 }

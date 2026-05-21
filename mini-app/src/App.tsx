@@ -57,7 +57,7 @@ export default function App() {
           onShowOnboard={() => setShowOnboardPopup(true)}
         />
       )}
-      {activeTab === 'signals' && <SignalsPage user={user} telegramId={telegramId} />}
+      {activeTab === 'signals' && <SignalsPage user={user} />}
       {activeTab === 'profile' && (
         <ProfilePage user={user} telegramId={telegramId} onUserUpdate={setUser} />
       )}

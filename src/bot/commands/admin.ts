@@ -25,24 +25,50 @@ interface BroadcastSetup {
   chatId?: number;
 }
 
+interface BotSession {
+  broadcastSetup?: BroadcastSetup | null;
+  awaitingField?: string | null;
+}
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 function isAdmin(ctx: Context): boolean {
   return cfg.adminIds.includes(ctx.from?.id ?? 0);
 }
 
-function s(ctx: Context): any {
-  if (!(ctx as any).session) (ctx as any).session = {};
-  return (ctx as any).session;
+function s(ctx: Context): BotSession {
+  const c = ctx as Context & { session?: BotSession };
+  if (!c.session) c.session = {};
+  return c.session;
 }
 
 function bcSetup(ctx: Context): BroadcastSetup {
-  if (!s(ctx).broadcastSetup) s(ctx).broadcastSetup = {};
-  return s(ctx).broadcastSetup;
+  const sess = s(ctx);
+  if (!sess.broadcastSetup) sess.broadcastSetup = {};
+  return sess.broadcastSetup;
 }
 
 function periodLabel(p: StatsPeriod): string {
   return { all: 'Все время', day: '24 часа', week: 'Неделя', month: 'Месяц' }[p];
+}
+
+// Редактируемые через админку поля настроек.
+// prompt — текст запроса ввода, label — заголовок в подтверждении.
+const SETTINGS_FIELDS: Record<string, { prompt: string; label: string }> = {
+  referralUrl:    { prompt: 'реферальную ссылку', label: 'Реферальная ссылка' },
+  channelUrl:     { prompt: 'ссылку на Telegram-канал', label: 'Ссылка на канал' },
+  promoCode:      { prompt: 'промокод', label: 'Промокод' },
+  botName:        { prompt: 'название бота', label: 'Название бота' },
+  supportContact: { prompt: 'контакт поддержки (@username или ссылку)', label: 'Контакт поддержки' },
+};
+
+// Безопасная ячейка CSV: гасит формулы (=,+,-,@) и экранирует кавычки/запятые,
+// чтобы файл не ломался и не выполнял формулы в Excel.
+function csvCell(value: string | number): string {
+  let s = String(value);
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+  return s;
 }
 
 // ─── text builders ────────────────────────────────────────────────────────────
@@ -253,20 +279,12 @@ export function registerAdminCallbacks(bot: Telegraf) {
     }
   });
 
-  const FIELD_LABELS: Record<string, string> = {
-    referralUrl:    'реферальную ссылку',
-    channelUrl:     'ссылку на Telegram-канал',
-    promoCode:      'промокод',
-    botName:        'название бота',
-    supportContact: 'контакт поддержки (@username или ссылку)',
-  };
-
-  for (const field of Object.keys(FIELD_LABELS)) {
+  for (const field of Object.keys(SETTINGS_FIELDS)) {
     bot.action(`admin:set:${field}`, async (ctx) => {
       if (!isAdmin(ctx)) return ctx.answerCbQuery('Нет доступа');
       await ctx.answerCbQuery();
       s(ctx).awaitingField = field;
-      await ctx.reply(`${E.pen} Введи ${FIELD_LABELS[field]}:`, { parse_mode: 'HTML' });
+      await ctx.reply(`${E.pen} Введи ${SETTINGS_FIELDS[field].prompt}:`, { parse_mode: 'HTML' });
     });
   }
 
@@ -451,57 +469,61 @@ export function registerAdminCallbacks(bot: Telegraf) {
     const msgId = (ctx.callbackQuery?.message as any)?.message_id;
     const startTime = Date.now();
 
-    try {
-      await ctx.telegram.editMessageText(
-        chatId, msgId, undefined,
-        `📣 <b>Рассылка запущена...</b>\n\nАудитория: <b>${categoryLabel(category)}</b>\n\n⏳ Подготовка...`,
-        { parse_mode: 'HTML' }
-      );
-    } catch (_) {}
+    // Рассылка идёт в фоне — обработчик кнопки не блокируется надолго,
+    // прогресс пользователь видит через обновление сообщения.
+    void (async () => {
+      try {
+        await ctx.telegram.editMessageText(
+          chatId, msgId, undefined,
+          `📣 <b>Рассылка запущена...</b>\n\nАудитория: <b>${categoryLabel(category)}</b>\n\n⏳ Подготовка...`,
+          { parse_mode: 'HTML' }
+        );
+      } catch (_) {}
 
-    const { sentCount, failCount, totalCount } = await runBroadcast(
-      ctx.telegram,
-      category,
-      message,
-      photoFileId,
-      async (done, total) => {
-        const bar = progressBar(done, total);
-        const pct = total > 0 ? Math.floor((done / total) * 100) : 0;
-        try {
-          await ctx.telegram.editMessageText(
-            chatId, msgId, undefined,
-            `📣 <b>Рассылка запущена...</b>\n\n` +
-            `Аудитория: <b>${categoryLabel(category)}</b>\n\n` +
-            `Прогресс: <code>[${bar}]</code> ${pct}%\n` +
-            `Отправлено: <b>${done}</b> / ${total}\n\n` +
-            `⏳ Подождите...`,
-            { parse_mode: 'HTML' }
-          );
-        } catch (_) {}
-      }
-    );
-
-    const elapsed = formatDuration(Date.now() - startTime);
-
-    try {
-      await ctx.telegram.editMessageText(
-        chatId, msgId, undefined,
-        `✅ <b>Рассылка завершена!</b>\n\n` +
-        `${E.chart} <b>Итоги</b>\n` +
-        `🎯 Аудитория: <b>${categoryLabel(category)}</b>\n` +
-        `✅ Доставлено: <b>${sentCount}</b> сообщений\n` +
-        `❌ Не доставлено: <b>${failCount}</b> сообщений\n` +
-        `   └ Заблокировали бота: ${failCount}\n\n` +
-        `${E.stopwatch} Время выполнения: <b>${elapsed}</b>`,
-        {
-          parse_mode: 'HTML',
-          ...Markup.inlineKeyboard([
-            [Markup.button.callback('📁 База пользователей', 'admin:export')],
-            [Markup.button.callback('◀️ Меню', 'admin:back')],
-          ]),
+      const { sentCount, failCount } = await runBroadcast(
+        ctx.telegram,
+        category,
+        message,
+        photoFileId,
+        async (done, total) => {
+          const bar = progressBar(done, total);
+          const pct = total > 0 ? Math.floor((done / total) * 100) : 0;
+          try {
+            await ctx.telegram.editMessageText(
+              chatId, msgId, undefined,
+              `📣 <b>Рассылка запущена...</b>\n\n` +
+              `Аудитория: <b>${categoryLabel(category)}</b>\n\n` +
+              `Прогресс: <code>[${bar}]</code> ${pct}%\n` +
+              `Отправлено: <b>${done}</b> / ${total}\n\n` +
+              `⏳ Подождите...`,
+              { parse_mode: 'HTML' }
+            );
+          } catch (_) {}
         }
       );
-    } catch (_) {}
+
+      const elapsed = formatDuration(Date.now() - startTime);
+
+      try {
+        await ctx.telegram.editMessageText(
+          chatId, msgId, undefined,
+          `✅ <b>Рассылка завершена!</b>\n\n` +
+          `${E.chart} <b>Итоги</b>\n` +
+          `🎯 Аудитория: <b>${categoryLabel(category)}</b>\n` +
+          `✅ Доставлено: <b>${sentCount}</b> сообщений\n` +
+          `❌ Не доставлено: <b>${failCount}</b> сообщений\n` +
+          `   └ Заблокировали бота: ${failCount}\n\n` +
+          `${E.stopwatch} Время выполнения: <b>${elapsed}</b>`,
+          {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard([
+              [Markup.button.callback('📁 База пользователей', 'admin:export')],
+              [Markup.button.callback('◀️ Меню', 'admin:back')],
+            ]),
+          }
+        );
+      } catch (_) {}
+    })().catch((err) => console.error('[broadcast] send-now failed:', err));
   });
 
   // ── export users ──────────────────────────────────────────────────────────
@@ -510,7 +532,7 @@ export function registerAdminCallbacks(bot: Telegraf) {
     await ctx.answerCbQuery('⏳ Формирую файл...');
 
     const users = await getAllUsersForExport();
-    const header = 'ID,Telegram ID,1win ID,Статус,Депозит,Сумма депозитов,Кол-во депозитов,Сигналов,Заблокирован,Дата регистрации\n';
+    const header = 'ID,Telegram ID,1win ID,Статус,Депозит,Сумма депозитов,Кол-во депозитов,Сигналов,Заблокирован,Дата регистрации';
     const rows = users.map((u) =>
       [
         u.id,
@@ -523,10 +545,10 @@ export function registerAdminCallbacks(bot: Telegraf) {
         u.signalsUsed,
         u.blockedAt ? 'Да' : 'Нет',
         u.createdAt.toISOString(),
-      ].join(',')
+      ].map(csvCell).join(',')
     ).join('\n');
 
-    const csv = Buffer.from('﻿' + header + rows, 'utf-8');
+    const csv = Buffer.from('﻿' + header + '\n' + rows, 'utf-8');
     const date = new Date().toISOString().split('T')[0];
 
     await ctx.replyWithDocument(
@@ -596,16 +618,9 @@ export function registerAdminCallbacks(bot: Telegraf) {
     if (!field) return next();
 
     sess.awaitingField = null;
-    const FIELD_LABELS: Record<string, string> = {
-      referralUrl: 'Реферальная ссылка',
-      channelUrl: 'Ссылка на канал',
-      promoCode: 'Промокод',
-      botName: 'Название бота',
-      supportContact: 'Контакт поддержки',
-    };
     await updateSettings({ [field]: text });
     await ctx.reply(
-      `✅ <b>${FIELD_LABELS[field] ?? field}</b> обновлено:\n<code>${text}</code>`,
+      `✅ <b>${SETTINGS_FIELDS[field]?.label ?? field}</b> обновлено:\n<code>${text}</code>`,
       { parse_mode: 'HTML' }
     );
   });

@@ -10,7 +10,7 @@ export function useUser(telegramId: number | null) {
     if (!telegramId) return;
     setLoading(true);
     try {
-      const data = await fetchUser(telegramId);
+      const data = await fetchUser();
       setUser(data);
     } finally {
       setLoading(false);

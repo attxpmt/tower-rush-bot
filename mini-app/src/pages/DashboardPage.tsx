@@ -32,7 +32,7 @@ export default function DashboardPage({ user, telegramId, onTabChange, onShowOnb
 
   useEffect(() => {
     fetchSettings().then(setSettings).catch(() => {});
-    getUserAvatar(telegramId).then(setAvatarUrl).catch(() => {});
+    getUserAvatar().then(setAvatarUrl).catch(() => {});
 
     const interval = setInterval(() => {
       setOnline(Math.floor(Math.random() * 400) + 100);

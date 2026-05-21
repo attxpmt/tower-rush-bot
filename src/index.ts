@@ -1,9 +1,8 @@
 import 'dotenv/config';
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
-import { spawn } from 'child_process';
 import { cfg } from './config';
 import apiRouter from './api';
 import postbackRouter from './postback';
@@ -12,8 +11,21 @@ import prisma from './prisma';
 
 const app = express();
 
-app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors());
+// CSP под мини-аппу: разрешаем только нужные источники
+// (Telegram-скрипт, Google Fonts, аватарки с api.telegram.org).
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", 'https://telegram.org'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc: ["'self'", 'data:', 'https://api.telegram.org'],
+      connectSrc: ["'self'"],
+    },
+  },
+}));
+app.use(cors({ origin: cfg.miniAppUrl }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -27,26 +39,15 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(miniAppDist, 'index.html'));
 });
 
-function pushDbSchema(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const bin = path.join(__dirname, '..', 'node_modules', '.bin', 'prisma');
-    const proc = spawn(bin, ['db', 'push', '--accept-data-loss', '--skip-generate'], {
-      stdio: 'inherit',
-    });
-    proc.on('close', (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`prisma db push exited with code ${code}`));
-    });
-    proc.on('error', reject);
-  });
-}
+// Глобальный обработчик ошибок — ловит всё, что упало в async-роутах,
+// и сразу отдаёт 500, не оставляя запрос висеть до таймаута.
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('[api:error]', err?.message ?? err);
+  if (!res.headersSent) res.status(500).json({ error: 'Internal Server Error' });
+});
 
 async function startBot(): Promise<void> {
-  // Apply DB schema
-  console.log('[startup] Running prisma db push...');
-  await pushDbSchema();
-  console.log('[startup] DB schema ready');
-
+  // Схема БД накатывается миграциями (prisma migrate deploy) в start.sh
   await prisma.$connect();
 
   const bot = createBot();

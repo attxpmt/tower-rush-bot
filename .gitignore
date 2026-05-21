@@ -4,3 +4,4 @@ mini-app/node_modules/
 mini-app/dist/
 .env
 *.log
+.DS_Store

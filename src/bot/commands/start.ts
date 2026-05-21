@@ -38,7 +38,10 @@ async function checkSubscription(telegram: Telegraf['telegram'], userId: number,
   try {
     const member = await telegram.getChatMember(channelId, userId);
     return ['member', 'administrator', 'creator'].includes(member.status);
-  } catch {
+  } catch (err: any) {
+    // Fail-open: не блокируем реальных юзеров, если бот не админ канала
+    // или channelId указан неверно. Но логируем, чтобы видеть поломку гейта.
+    console.warn(`[subscription] check failed for channel "${channelId}":`, err?.message ?? err);
     return true;
   }
 }

@@ -37,7 +37,7 @@ export default function ProfilePage({ user, telegramId, onUserUpdate }: Props) {
     : `User ${telegramId}`;
 
   useEffect(() => {
-    getUserAvatar(telegramId).then(setAvatarUrl).catch(() => {});
+    getUserAvatar().then(setAvatarUrl).catch(() => {});
     fetchSettings().then(setSettings).catch(() => {});
   }, [telegramId]);
 
@@ -60,7 +60,7 @@ export default function ProfilePage({ user, telegramId, onUserUpdate }: Props) {
     setRefreshing(true);
     setRotation((r) => r + 360);
     try {
-      const updated = await refreshUserStats(telegramId);
+      const updated = await refreshUserStats();
       onUserUpdate(updated);
       showToast('Данные обновлены', 'success');
     } catch {
@@ -77,7 +77,7 @@ export default function ProfilePage({ user, telegramId, onUserUpdate }: Props) {
     setVerifyLoading(true);
     setVerifyError('');
     try {
-      const updated = await verifyOnewinId(telegramId, onewinInput.trim());
+      const updated = await verifyOnewinId(onewinInput.trim());
       onUserUpdate(updated);
       setEditingOnewin(false);
       setOnewinInput('');

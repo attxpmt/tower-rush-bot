@@ -86,9 +86,13 @@ export async function updateUserFromPostback(
   return null;
 }
 
+const MS_DAY = 86_400_000;
+const MS_WEEK = 7 * MS_DAY;
+const MS_MONTH = 30 * MS_DAY;
+
 function periodSince(period: StatsPeriod): Date | undefined {
   if (period === 'all') return undefined;
-  const ms = { day: 86400000, week: 604800000, month: 2592000000 }[period];
+  const ms = { day: MS_DAY, week: MS_WEEK, month: MS_MONTH }[period];
   return new Date(Date.now() - ms);
 }
 
@@ -130,7 +134,7 @@ export async function getAdminStatsWithPeriod(period: StatsPeriod) {
       where: {
         signals: {
           some: {
-            createdAt: { gte: new Date(Date.now() - 86400000) },
+            createdAt: { gte: new Date(Date.now() - MS_DAY) },
           },
         },
       },
@@ -162,7 +166,6 @@ export async function getAdminStatsWithPeriod(period: StatsPeriod) {
     activeUsers,
     visit2reg,
     reg2dep,
-    conversionRate: visit2reg,
   };
 }
 

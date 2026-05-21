@@ -1,23 +1,23 @@
 import api from './client';
 import { User, Signal, Settings } from '../types';
 
-export async function fetchUser(telegramId: number): Promise<User> {
-  const res = await api.get(`/user/${telegramId}`);
+export async function fetchUser(): Promise<User> {
+  const res = await api.get('/user/me');
   return res.data;
 }
 
-export async function verifyOnewinId(telegramId: number, onewinId: string): Promise<User> {
-  const res = await api.post('/user/verify', { telegramId, onewinId });
+export async function verifyOnewinId(onewinId: string): Promise<User> {
+  const res = await api.post('/user/verify', { onewinId });
   return res.data;
 }
 
-export async function refreshUserStats(telegramId: number): Promise<User> {
-  const res = await api.post('/user/refresh-stats', { telegramId });
+export async function refreshUserStats(): Promise<User> {
+  const res = await api.post('/user/refresh-stats');
   return res.data;
 }
 
-export async function getUserAvatar(telegramId: number): Promise<string | null> {
-  const res = await api.get(`/user/avatar/${telegramId}`);
+export async function getUserAvatar(): Promise<string | null> {
+  const res = await api.get('/user/avatar/me');
   return res.data.url ?? null;
 }
 
@@ -27,9 +27,8 @@ export async function fetchSettings(): Promise<Settings> {
 }
 
 export async function generateSignal(
-  telegramId: number,
   strategy: 'stable' | 'moderate' | 'aggressive'
 ): Promise<Signal> {
-  const res = await api.post('/signal', { telegramId, strategy });
+  const res = await api.post('/signal', { strategy });
   return res.data;
 }

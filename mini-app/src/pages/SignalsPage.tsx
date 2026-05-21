@@ -9,7 +9,6 @@ import { colors, glow, gradient, radius } from '../theme';
 
 interface Props {
   user: User;
-  telegramId: number;
 }
 
 type Phase = 'locked' | 'prepare' | 'playing' | 'analyzing' | 'result';
@@ -32,7 +31,7 @@ const ANALYSIS_STEPS = [
 
 function delay(ms: number) { return new Promise<void>((r) => setTimeout(r, ms)); }
 
-export default function SignalsPage({ user, telegramId }: Props) {
+export default function SignalsPage({ user }: Props) {
   const isUnlocked = user.status === 'DEPOSITED' || user.status === 'VIP';
 
   const [phase, setPhase] = useState<Phase>(isUnlocked ? 'prepare' : 'locked');
@@ -94,7 +93,7 @@ export default function SignalsPage({ user, telegramId }: Props) {
     setAnalysisProgress([0, 0, 0]);
     setPhase('analyzing');
     try {
-      const [result] = await Promise.all([generateSignal(telegramId, strategy), runAnalysis()]);
+      const [result] = await Promise.all([generateSignal(strategy), runAnalysis()]);
       setSignal(result);
       setConfidence(70 + (result.id % 26));
       await delay(200);
