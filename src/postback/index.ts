@@ -3,17 +3,17 @@ import { z } from 'zod';
 import prisma from '../prisma';
 import { cfg } from '../config';
 import { asyncHandler } from '../api/asyncHandler';
-import { updateUserFromPostback } from '../services/userService';
+import { updateUserFromPostback, autoLinkViaRegistration } from '../services/userService';
 
 const router = Router();
 
 // 1win cabinet → PR-инструменты → Ссылки
-// Поле "Регистрация":     https://your-domain.com/postback?user_id={user_id}&event=registration&txid={click_id}&token=SECRET
-// Поле "Первый депозит":  https://your-domain.com/postback?user_id={user_id}&amount={amount}&event=deposit&txid={transaction_id}&token=SECRET
-// Поле "Депозит":         https://your-domain.com/postback?user_id={user_id}&amount={amount}&event=deposit&txid={transaction_id}&token=SECRET
+// Регистрация:   https://your-domain.com/postback?user_id={user_id}&event=registration&sub1={sub1}&txid={click_id}&token=SECRET
+// Все депозиты:  https://your-domain.com/postback?user_id={user_id}&amount={amount}&event=deposit&sub1={sub1}&txid={transaction_id}&token=SECRET
 //
-// Макросы 1win: {user_id} → ID аккаунта, {amount} → сумма депозита,
-//               {transaction_id}/{click_id} → уникальный ID (нужен для защиты от дублей)
+// {sub1} = telegramId пользователя, вставляется ботом в реферальную ссылку.
+// Именно наличие registration-постбэка с sub1 даёт registeredViaReferral = true
+// и открывает доступ к сигналам после депозита.
 
 const postbackSchema = z.object({
   token: z.string(),
@@ -22,6 +22,7 @@ const postbackSchema = z.object({
   event: z.string().min(1),
   amount: z.coerce.number().nonnegative().optional(),
   txid: z.string().min(1).max(128).optional(),
+  sub1: z.string().min(1).max(64).optional(),
 });
 
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
@@ -35,7 +36,6 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     return res.status(403).send('Forbidden');
   }
 
-  // Accept both {user_id} (1win macro) and legacy uid
   const onewinId = q.user_id ?? q.uid;
   if (!onewinId) {
     return res.status(400).send('Missing parameters: user_id is required');
@@ -46,8 +46,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     return res.status(400).send(`Unknown event type: ${q.event}`);
   }
 
-  // Защита от дублей: 1win при сбое сети повторяет постбэк.
-  // Если txId уже встречался — постбэк обработан, депозит повторно не считаем.
+  // Защита от дублей
   if (q.txid) {
     const existing = await prisma.postback.findUnique({ where: { txId: q.txid } });
     if (existing) {
@@ -55,7 +54,6 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     }
   }
 
-  // В raw сохраняем параметры запроса без секретного token
   const { token: _token, ...rawParams } = req.query as Record<string, unknown>;
 
   try {
@@ -69,7 +67,6 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    // P2002 — гонка двух одинаковых постбэков: txId уже записан, это дубль
     if (err?.code === 'P2002') {
       return res.status(200).send('OK (duplicate)');
     }
@@ -77,12 +74,22 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   }
 
   try {
+    // Registration + sub1: авто-привязка через реферальную ссылку
+    if (eventType === 'registration' && q.sub1) {
+      const linked = await autoLinkViaRegistration(q.sub1, onewinId);
+      if (linked) {
+        (process.emit as any)('postback', { user: linked, eventType, amount: q.amount });
+        return res.status(200).send('OK');
+      }
+    }
+
+    // Стандартный путь: пользователь уже привязал onewinId вручную
     const updatedUser = await updateUserFromPostback(onewinId, eventType, q.amount);
     if (updatedUser) {
       (process.emit as any)('postback', { user: updatedUser, eventType, amount: q.amount });
     }
   } catch (_) {
-    // User hasn't linked their ID yet — postback saved, will be applied on linkOnewinId
+    // Пользователь ещё не привязал ID — постбэк сохранён, применится при linkOnewinId
   }
 
   return res.status(200).send('OK');

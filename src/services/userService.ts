@@ -22,32 +22,58 @@ export async function getUserByOnewinId(onewinId: string) {
   return prisma.user.findUnique({ where: { onewinId } });
 }
 
+/**
+ * Вызывается когда приходит registration-постбэк с sub1 (telegramId).
+ * Единственный способ получить registeredViaReferral = true.
+ */
+export async function autoLinkViaRegistration(sub1: string, onewinId: string) {
+  let tgId: bigint;
+  try {
+    tgId = BigInt(sub1);
+  } catch {
+    return null;
+  }
+
+  const user = await prisma.user.findUnique({ where: { telegramId: tgId } });
+  if (!user) return null;
+
+  // Если onewinId уже принадлежит другому аккаунту — не трогаем
+  const existing = await prisma.user.findUnique({ where: { onewinId } });
+  if (existing && existing.telegramId !== tgId) return null;
+
+  return prisma.user.update({
+    where: { telegramId: tgId },
+    data: {
+      onewinId,
+      registeredViaReferral: true,
+      status: user.status === 'NEW' ? 'REGISTERED' : user.status,
+      onewinRegisteredAt: user.onewinRegisteredAt ?? new Date(),
+    },
+  });
+}
+
+/**
+ * Привязка onewinId вручную через профиль.
+ * Намеренно НЕ выдаёт DEPOSITED — только NEW→REGISTERED.
+ * Флаг registeredViaReferral остаётся false: доступ к сигналам не открывается.
+ */
 export async function linkOnewinId(telegramId: number, onewinId: string) {
   const existing = await prisma.user.findUnique({ where: { onewinId } });
   if (existing && existing.telegramId !== BigInt(telegramId)) {
     throw new Error('Этот 1win ID уже привязан к другому аккаунту');
   }
 
-  const [depositAgg, hasRegistration] = await Promise.all([
-    prisma.postback.aggregate({
-      where: { onewinId, eventType: 'deposit' },
-      _count: true,
-      _sum: { amount: true },
-    }),
-    prisma.postback.findFirst({ where: { onewinId } }),
-  ]);
+  // Проверяем: был ли registration-постбэк для этого ID через нашу систему
+  const hasRegistration = await prisma.postback.findFirst({
+    where: { onewinId, eventType: 'registration' },
+  });
 
-  const depositCount = depositAgg._count;
-  const totalDeposit = depositAgg._sum.amount ?? 0;
-  const hasDeposit = depositCount > 0;
-
-  let status: Status = 'NEW';
-  if (hasDeposit) status = 'DEPOSITED';
-  else if (hasRegistration) status = 'REGISTERED';
+  // Максимум REGISTERED — DEPOSITED только через реферальный постбэк
+  const status: Status = hasRegistration ? 'REGISTERED' : 'NEW';
 
   return prisma.user.update({
     where: { telegramId: BigInt(telegramId) },
-    data: { onewinId, status, hasDeposit, depositCount, totalDeposit },
+    data: { onewinId, status },
   });
 }
 
@@ -70,6 +96,9 @@ export async function updateUserFromPostback(
   }
 
   if (eventType === 'deposit') {
+    // Депозит засчитывается только пользователям, пришедшим через нашу рефку
+    if (!user.registeredViaReferral) return null;
+
     const newDepositCount = user.depositCount + 1;
     const newStatus = newDepositCount >= 10 ? 'VIP' : (user.status === 'VIP' ? 'VIP' : 'DEPOSITED');
     return prisma.user.update({

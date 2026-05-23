@@ -67,7 +67,12 @@ export default function DashboardPage({ user, telegramId, onTabChange, onShowOnb
   }
 
   function openReferral() {
-    if (settings?.referralUrl) WebApp.openLink(settings.referralUrl);
+    if (!settings?.referralUrl) return;
+    const tgId = WebApp.initDataUnsafe?.user?.id;
+    const base = settings.referralUrl;
+    const sep = base.includes('?') ? '&' : '?';
+    const url = tgId ? `${base}${sep}sub1=${tgId}` : base;
+    WebApp.openLink(url);
   }
 
   const balanceDisplay = getBalanceDisplay();
