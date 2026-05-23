@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Lock } from 'lucide-react';
+import { Zap, Lock, Search, BarChart2 } from 'lucide-react';
 import WebApp from '@twa-dev/sdk';
 import { User, Signal, Strategy, Settings } from '../types';
 import { generateSignal, fetchSettings } from '../api';
@@ -24,9 +24,9 @@ const STRATEGIES: { id: Strategy; label: string; desc: string; color: string }[]
 const BET_MULT: Record<Strategy, number> = { stable: 0.5, moderate: 0.35, aggressive: 0.25 };
 
 const ANALYSIS_STEPS = [
-  { emoji: '🔍', label: 'Анализирую статистику раундов' },
-  { emoji: '📊', label: 'Вычисляю паттерны игры' },
-  { emoji: '⚡', label: 'Калибрую коэффициент' },
+  { icon: Search,   label: 'Анализирую статистику раундов' },
+  { icon: BarChart2, label: 'Вычисляю паттерны игры' },
+  { icon: Zap,      label: 'Калибрую коэффициент' },
 ];
 
 function delay(ms: number) { return new Promise<void>((r) => setTimeout(r, ms)); }
@@ -64,21 +64,22 @@ export default function SignalsPage({ user }: Props) {
   async function runAnalysis(): Promise<void> {
     const progs = [0, 0, 0];
     for (let i = 0; i < 3; i++) {
-      await delay(i === 0 ? 100 : 250);
-      const start = Date.now();
-      const dur = 750 + i * 150;
-      await new Promise<void>((resolve) => {
-        const tick = () => {
-          const pct = Math.min(100, ((Date.now() - start) / dur) * 100);
-          progs[i] = pct;
-          setAnalysisProgress([...progs]);
-          if (pct < 100) requestAnimationFrame(tick);
-          else resolve();
-        };
-        requestAnimationFrame(tick);
-      });
+      if (i > 0) await delay(150 + Math.random() * 200);
+      let current = 0;
+      while (current < 100) {
+        const chunk = 4 + Math.random() * 14;
+        current = Math.min(100, current + chunk);
+        progs[i] = current;
+        setAnalysisProgress([...progs]);
+        // случайная пауза "думает" в середине
+        if (current > 35 && current < 80 && Math.random() < 0.28) {
+          await delay(350 + Math.random() * 450);
+        } else {
+          await delay(50 + Math.random() * 110);
+        }
+      }
     }
-    await delay(300);
+    await delay(200);
   }
 
   async function handleGetSignal() {
@@ -450,6 +451,18 @@ function PrepareOverlay({ strategy, riskAmount, onRiskAmountChange, onStrategyCh
   onStrategyChange: (s: Strategy) => void;
   onStart: () => void;
 }) {
+  const [showError, setShowError] = useState(false);
+  const riskValid = parseFloat(riskAmount) > 0;
+
+  function handleStart() {
+    if (!riskValid) {
+      setShowError(true);
+      setTimeout(() => setShowError(false), 2500);
+      return;
+    }
+    onStart();
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -476,24 +489,29 @@ function PrepareOverlay({ strategy, riskAmount, onRiskAmountChange, onStrategyCh
 
       {/* Risk amount input */}
       <div>
-        <div style={{ color: colors.amber, fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Сумма для риска (₽)</div>
-        <input
-          type="number"
-          value={riskAmount}
-          onChange={(e) => onRiskAmountChange(e.target.value)}
-          placeholder="Введите сумму..."
-          style={{
-            width: '100%', padding: '13px 14px',
-            background: 'rgba(255,255,255,0.06)',
-            border: `1px solid ${riskAmount ? 'rgba(245,166,35,0.5)' : colors.border}`,
-            borderRadius: radius.md,
-            color: colors.text, fontSize: 16, fontWeight: 700,
-            fontFamily: "'Exo 2', sans-serif",
-            outline: 'none', boxSizing: 'border-box',
-          }}
-        />
-        <div style={{ color: colors.textMuted, fontSize: 11, marginTop: 4 }}>
-          Сумма, которую тебе не жалко потерять за сессию
+        <div style={{ color: showError ? colors.danger : colors.amber, fontSize: 13, fontWeight: 800, marginBottom: 8, transition: 'color 0.2s' }}>
+          Сумма для риска (₽){showError && ' — обязательное поле'}
+        </div>
+        <motion.div animate={showError ? { x: [-6, 6, -5, 5, -3, 0] } : {}} transition={{ duration: 0.35 }}>
+          <input
+            type="number"
+            value={riskAmount}
+            onChange={(e) => { onRiskAmountChange(e.target.value); setShowError(false); }}
+            placeholder="Введите сумму..."
+            style={{
+              width: '100%', padding: '13px 14px',
+              background: 'rgba(255,255,255,0.06)',
+              border: `1px solid ${showError ? colors.danger : riskAmount ? 'rgba(245,166,35,0.5)' : colors.border}`,
+              borderRadius: radius.md,
+              color: colors.text, fontSize: 16, fontWeight: 700,
+              fontFamily: "'Exo 2', sans-serif",
+              outline: 'none', boxSizing: 'border-box',
+              transition: 'border-color 0.2s',
+            }}
+          />
+        </motion.div>
+        <div style={{ color: showError ? colors.danger : colors.textMuted, fontSize: 11, marginTop: 4, transition: 'color 0.2s' }}>
+          {showError ? 'Укажи сумму перед началом игры' : 'Сумма, которую тебе не жалко потерять за сессию'}
         </div>
       </div>
 
@@ -545,18 +563,22 @@ function PrepareOverlay({ strategy, riskAmount, onRiskAmountChange, onStrategyCh
 
       <motion.button
         whileTap={{ scale: 0.97 }}
-        onClick={onStart}
+        onClick={handleStart}
         style={{
           width: '100%', padding: '16px',
-          background: gradient.amber,
-          border: 'none', borderRadius: radius.lg,
-          color: '#000', fontWeight: 800, fontSize: 16,
-          cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
+          background: riskValid ? gradient.amber : 'rgba(255,255,255,0.08)',
+          border: riskValid ? 'none' : `1px solid ${colors.border}`,
+          borderRadius: radius.lg,
+          color: riskValid ? '#000' : colors.textMuted,
+          fontWeight: 800, fontSize: 16,
+          cursor: riskValid ? 'pointer' : 'default',
+          fontFamily: "'Exo 2', sans-serif",
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          boxShadow: glow.amber,
+          boxShadow: riskValid ? glow.amber : 'none',
+          transition: 'all 0.2s',
         }}
       >
-        <Zap size={18} fill="#000" /> Начать играть
+        <Zap size={18} fill={riskValid ? '#000' : colors.textMuted} /> Начать играть
       </motion.button>
     </motion.div>
   );
@@ -587,7 +609,7 @@ function AnalyzingOverlay({ progress }: { progress: number[] }) {
           <div key={i}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 16 }}>{item.emoji}</span>
+                <item.icon size={16} color={progress[i] >= 100 ? colors.success : colors.amber} />
                 <span style={{
                   color: progress[i] >= 100 ? colors.text : colors.textMuted,
                   fontSize: 13, fontWeight: 600,
