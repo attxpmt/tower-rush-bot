@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { LinkIcon } from 'lucide-react';
 import { useTelegram } from './hooks/useTelegram';
 import { useUser } from './hooks/useUser';
 import { Tab } from './types';
@@ -123,15 +124,14 @@ export default function App() {
                 marginBottom: 16,
                 boxShadow: glow.amberSoft,
               }}>
-                <span style={{ fontSize: 26 }}>🎮</span>
+                <LinkIcon size={24} color="#f5a623" strokeWidth={2} />
               </div>
 
               <div style={{ color: colors.text, fontWeight: 800, fontSize: 20, marginBottom: 8 }}>
                 Привяжи 1win ID
               </div>
               <div style={{ color: colors.textMuted, fontSize: 13, lineHeight: 1.6, marginBottom: 22 }}>
-                Найди ID в личном кабинете 1win → Профиль.{'\n'}
-                Это нужно чтобы твой депозит попал в систему и открыл сигналы.
+                Скопируй свой ID в профиле на 1win. Это нужно чтобы твой депозит попал в систему и открыл сигналы.
               </div>
 
               {/* Input */}
