@@ -6,6 +6,7 @@ interface Props {
   active: Tab;
   onTabChange: (tab: Tab) => void;
   status: UserStatus;
+  hasOnewinId: boolean;
 }
 
 const LEFT_TABS: { id: Tab; label: string; Icon: React.FC<any> }[] = [
@@ -18,7 +19,7 @@ const RIGHT_TABS: { id: Tab; label: string; Icon: React.FC<any> }[] = [
   { id: 'settings', label: 'Настройки', Icon: Settings2 },
 ];
 
-export default function BottomNav({ active, onTabChange, status }: Props) {
+export default function BottomNav({ active, onTabChange, status, hasOnewinId }: Props) {
   const isUnlocked = status === 'DEPOSITED' || status === 'VIP';
   const signalsLocked = !isUnlocked;
 
@@ -36,13 +37,26 @@ export default function BottomNav({ active, onTabChange, status }: Props) {
         style={signalsBtnStyle(active === 'signals', signalsLocked)}
         onClick={() => onTabChange('signals')}
       >
-          <Zap size={26} strokeWidth={2.5} fill={active === 'signals' ? '#050b18' : 'none'} />
+        <Zap size={26} strokeWidth={2.5} fill={active === 'signals' ? '#050b18' : 'none'} />
         <span style={{ fontSize: 10, marginTop: 3, fontWeight: 700 }}>Сигналы</span>
       </button>
 
       {RIGHT_TABS.map(({ id, label, Icon }) => (
         <button key={id} style={btnStyle(active === id)} onClick={() => onTabChange(id)}>
-          <Icon size={20} strokeWidth={active === id ? 2.5 : 1.8} />
+          <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon size={20} strokeWidth={active === id ? 2.5 : 1.8} />
+            {id === 'profile' && !hasOnewinId && (
+              <div style={{
+                position: 'absolute',
+                top: -3, right: -4,
+                width: 8, height: 8,
+                borderRadius: '50%',
+                background: '#ff4444',
+                boxShadow: '0 0 6px rgba(255,68,68,0.9)',
+                animation: 'pulse-dot 1.5s ease-in-out infinite',
+              }} />
+            )}
+          </div>
           <span style={{ fontSize: 10, marginTop: 3 }}>{label}</span>
         </button>
       ))}
