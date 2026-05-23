@@ -36,6 +36,11 @@
         50%       { box-shadow: 0 0 20px rgba(245,166,35,0.7); }
       }
 
+      @keyframes shimmer-border {
+        0%, 100% { border-color: rgba(245,166,35,0.15); box-shadow: none; }
+        50%       { border-color: rgba(245,166,35,0.75); box-shadow: 0 0 18px rgba(245,166,35,0.28); }
+      }
+
       @keyframes float {
         0%, 100% { transform: translateY(0px); }
         50%       { transform: translateY(-6px); }

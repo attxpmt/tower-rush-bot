@@ -17,6 +17,8 @@ interface Props {
   onShowOnboard: () => void;
 }
 
+const spring = { type: 'spring', stiffness: 340, damping: 28 } as const;
+
 export default function DashboardPage({ user, telegramId, onTabChange, onShowOnboard }: Props) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -84,43 +86,38 @@ export default function DashboardPage({ user, telegramId, onTabChange, onShowOnb
     >
       {/* ── Header ── */}
       <div style={{
-        padding: '24px 20px 8px',
+        padding: '20px 20px 4px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 6,
       }}>
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 160, height: 120 }}>
-          {/* Glow behind logo */}
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 120, height: 80 }}>
           <div style={{
             position: 'absolute',
-            width: 130,
-            height: 70,
-            background: 'rgba(245,166,35,0.5)',
+            width: 100, height: 50,
+            background: 'rgba(245,166,35,0.45)',
             borderRadius: '50%',
-            filter: 'blur(28px)',
-            top: '50%',
-            left: '50%',
+            filter: 'blur(22px)',
+            top: '50%', left: '50%',
             transform: 'translate(-50%, -50%)',
             pointerEvents: 'none',
           }} />
           <motion.img
             src="/logo.webp"
             alt="Tower Rush"
-            initial={{ opacity: 0, y: -12 }}
+            initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-            style={{ width: 150, height: 'auto', objectFit: 'contain', position: 'relative' }}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
+            style={{ width: 110, height: 'auto', objectFit: 'contain', position: 'relative' }}
           />
         </div>
       </div>
 
-      <div style={{ padding: '12px 16px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ padding: '10px 16px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-        {/* ── Player Card ── */}
-        <GlowCard variant="navy" style={{ animation: 'pulse-glow 3s ease-in-out infinite' }}>
+        {/* ── Player Card — shimmer-border вместо pulse-glow ── */}
+        <GlowCard variant="navy" style={{ animation: 'shimmer-border 2.5s ease-in-out infinite' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-            {/* Avatar + name */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
               <div style={{
                 width: 54, height: 54, borderRadius: '50%',
@@ -152,7 +149,6 @@ export default function DashboardPage({ user, telegramId, onTabChange, onShowOnb
               </div>
             </div>
 
-            {/* Balance / Lock */}
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               {isUnlocked && balanceDisplay ? (
                 <>
@@ -171,7 +167,6 @@ export default function DashboardPage({ user, telegramId, onTabChange, onShowOnb
                 <div style={{ fontSize: 28 }}>🔒</div>
               ) : null}
 
-              {/* Online */}
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 4,
                 justifyContent: 'flex-end', marginTop: 10,
@@ -181,14 +176,11 @@ export default function DashboardPage({ user, telegramId, onTabChange, onShowOnb
                   background: colors.success,
                   boxShadow: `0 0 6px ${colors.success}`,
                 }} />
-                <span style={{ color: colors.textMuted, fontSize: 11 }}>
-                  {online} онлайн
-                </span>
+                <span style={{ color: colors.textMuted, fontSize: 11 }}>{online} онлайн</span>
               </div>
             </div>
           </div>
 
-          {/* Stats row */}
           <div style={{
             marginTop: 14, paddingTop: 14,
             borderTop: `1px solid ${colors.border}`,
@@ -202,36 +194,8 @@ export default function DashboardPage({ user, telegramId, onTabChange, onShowOnb
           </div>
         </GlowCard>
 
-        {/* ── 1win Banner ── */}
-        {settings ? (
-          <GlowCard variant="amber" onClick={openReferral}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ color: colors.text, fontWeight: 700, fontSize: 15 }}>
-                  Играй на 1win
-                </div>
-                <div style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
-                  Переходи по нашей ссылке
-                </div>
-              </div>
-              <div style={{
-                background: gradient.amber,
-                color: '#000',
-                fontWeight: 800, fontSize: 13,
-                padding: '9px 16px',
-                borderRadius: radius.full,
-                display: 'flex', alignItems: 'center', gap: 6,
-                boxShadow: glow.amber,
-                flexShrink: 0,
-              }}>
-                <ExternalLink size={14} />
-                Перейти
-              </div>
-            </div>
-          </GlowCard>
-        ) : (
-          <ShimmerCard height={72} />
-        )}
+        {/* ── 1win Banner — всегда рендерится, не ждёт settings ── */}
+        <OnewinBanner onClick={openReferral} />
 
         {/* ── Navigation ── */}
         <div>
@@ -243,18 +207,16 @@ export default function DashboardPage({ user, telegramId, onTabChange, onShowOnb
             Навигация
           </div>
 
-          {/* Signals — full width */}
           <NavCard
             icon={<Zap size={20} fill={isUnlocked ? colors.amber : 'none'} color={isUnlocked ? colors.amber : colors.textMuted} />}
             label="Сигналы"
-            desc={isUnlocked ? 'Получай точные сигналы' : 'Доступно после пополнения баланса'}
+            desc={isUnlocked ? 'Играть по сигналам' : 'Доступно после пополнения баланса'}
             locked={!isUnlocked}
             amber
             onClick={() => isUnlocked ? onTabChange('signals') : onShowOnboard()}
             style={{ marginBottom: 8 }}
           />
 
-          {/* Profile + Training */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <NavCard
               icon={<UserIcon size={18} color={colors.cyan} />}
@@ -273,31 +235,7 @@ export default function DashboardPage({ user, telegramId, onTabChange, onShowOnb
 
         {/* ── Promo Code ── */}
         {settings?.promoCode && (
-          <GlowCard variant="default" onClick={copyPromo} glowOnHover>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ color: colors.textMuted, fontSize: 12 }}>
-                  Промокод при регистрации
-                </div>
-                <div style={{
-                  color: colors.amber, fontWeight: 800, fontSize: 20,
-                  letterSpacing: 2, marginTop: 4,
-                  textShadow: `0 0 10px rgba(245,166,35,0.4)`,
-                }}>
-                  {settings.promoCode}
-                </div>
-              </div>
-              <div style={{
-                width: 42, height: 42, borderRadius: radius.md,
-                background: 'rgba(245,166,35,0.1)',
-                border: `1px solid rgba(245,166,35,0.25)`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0,
-              }}>
-                <Copy size={18} color={colors.amber} />
-              </div>
-            </div>
-          </GlowCard>
+          <PromoBlock promoCode={settings.promoCode} onCopy={copyPromo} />
         )}
 
       </div>
@@ -305,14 +243,80 @@ export default function DashboardPage({ user, telegramId, onTabChange, onShowOnb
   );
 }
 
-function StatItem({ label, value }: { label: string; value: string }) {
+// ─── 1win Banner ──────────────────────────────────────────────────────────────
+
+function OnewinBanner({ onClick }: { onClick: () => void }) {
   return (
-    <div style={{ flex: 1, textAlign: 'center', padding: '0 4px' }}>
-      <div style={{ color: colors.textMuted, fontSize: 10, marginBottom: 3 }}>{label}</div>
-      <div style={{ color: colors.text, fontSize: 12, fontWeight: 600 }}>{value}</div>
-    </div>
+    <motion.div
+      onClick={onClick}
+      initial="rest"
+      whileHover="hover"
+      whileTap={{ scale: 0.97 }}
+      variants={{
+        rest: { scale: 1, boxShadow: '0 4px 28px rgba(245,166,35,0.28)' },
+        hover: { scale: 1.02, boxShadow: '0 8px 48px rgba(245,166,35,0.58)' },
+      }}
+      transition={spring}
+      style={{
+        position: 'relative',
+        overflow: 'hidden',
+        borderRadius: radius.lg,
+        padding: '18px 20px',
+        cursor: 'pointer',
+        background: 'linear-gradient(135deg, #f5a623 0%, #ffd055 45%, #e8920a 100%)',
+        border: '1px solid rgba(255,210,80,0.5)',
+      }}
+    >
+      {/* Shimmer sweep on hover */}
+      <motion.div
+        variants={{
+          rest: { x: '-130%' },
+          hover: { x: '300%', transition: { duration: 0.55, ease: 'easeIn' } },
+        }}
+        style={{
+          position: 'absolute',
+          top: 0, bottom: 0, width: '50%',
+          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
+          transform: 'skewX(-18deg)',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      />
+
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <div style={{ color: '#000', fontWeight: 900, fontSize: 19, letterSpacing: -0.3, lineHeight: 1.15 }}>
+            ИГРАТЬ НА 1WIN
+          </div>
+          <div style={{ color: 'rgba(0,0,0,0.58)', fontSize: 12, marginTop: 4 }}>
+            Перейти на официальный сайт
+          </div>
+        </div>
+        <motion.div
+          variants={{
+            rest: { scale: 1 },
+            hover: { scale: 1.08 },
+          }}
+          transition={spring}
+          style={{
+            background: 'rgba(0,0,0,0.18)',
+            borderRadius: radius.md,
+            padding: '9px 15px',
+            display: 'flex', alignItems: 'center', gap: 6,
+            color: '#000', fontWeight: 800, fontSize: 14,
+            flexShrink: 0,
+            border: '1px solid rgba(0,0,0,0.1)',
+          }}
+        >
+          <ExternalLink size={15} strokeWidth={2.5} />
+          Перейти
+        </motion.div>
+      </div>
+    </motion.div>
   );
 }
+
+// ─── Nav Card ─────────────────────────────────────────────────────────────────
 
 interface NavCardProps {
   icon: React.ReactNode;
@@ -327,9 +331,21 @@ interface NavCardProps {
 function NavCard({ icon, label, desc, locked, amber, onClick, style }: NavCardProps) {
   return (
     <motion.div
-      whileTap={{ scale: 0.97 }}
       onClick={onClick}
+      initial="rest"
+      whileHover="hover"
+      whileTap={{ scale: 0.97 }}
+      variants={{
+        rest: { scale: 1, boxShadow: amber ? glow.amberSoft : 'none' },
+        hover: {
+          scale: 1.025,
+          boxShadow: amber ? '0 0 24px rgba(245,166,35,0.38)' : '0 0 16px rgba(0,212,255,0.18)',
+        },
+      }}
+      transition={spring}
       style={{
+        position: 'relative',
+        overflow: 'hidden',
         background: amber ? gradient.cardAmber : gradient.card,
         border: `1px solid ${amber ? 'rgba(245,166,35,0.3)' : colors.border}`,
         borderRadius: radius.lg,
@@ -338,24 +354,122 @@ function NavCard({ icon, label, desc, locked, amber, onClick, style }: NavCardPr
         display: 'flex',
         alignItems: 'center',
         gap: 12,
-        boxShadow: amber ? glow.amberSoft : 'none',
         ...style,
       }}
     >
-      <div style={{
-        width: 40, height: 40, borderRadius: radius.md,
-        background: amber ? 'rgba(245,166,35,0.12)' : 'rgba(0,212,255,0.08)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0,
-      }}>
-        {locked ? <Lock size={18} color={colors.textMuted} /> : icon}
-      </div>
-      <div>
-        <div style={{ color: locked ? colors.textMuted : colors.text, fontWeight: 700, fontSize: 14 }}>
-          {label}
+      {/* Shimmer sweep on hover */}
+      <motion.div
+        variants={{
+          rest: { x: '-130%' },
+          hover: { x: '350%', transition: { duration: 0.5, ease: 'easeIn' } },
+        }}
+        style={{
+          position: 'absolute',
+          top: 0, bottom: 0, width: '45%',
+          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.065), transparent)',
+          transform: 'skewX(-15deg)',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      />
+
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: radius.md,
+          background: amber ? 'rgba(245,166,35,0.12)' : 'rgba(0,212,255,0.08)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          {locked ? <Lock size={18} color={colors.textMuted} /> : icon}
         </div>
-        <div style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>{desc}</div>
+        <div>
+          <div style={{ color: locked ? colors.textMuted : colors.text, fontWeight: 700, fontSize: 14 }}>
+            {label}
+          </div>
+          <div style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>{desc}</div>
+        </div>
       </div>
     </motion.div>
+  );
+}
+
+// ─── Promo Block ──────────────────────────────────────────────────────────────
+
+function PromoBlock({ promoCode, onCopy }: { promoCode: string; onCopy: () => void }) {
+  return (
+    <motion.div
+      onClick={onCopy}
+      initial="rest"
+      whileHover="hover"
+      whileTap={{ scale: 0.97 }}
+      variants={{
+        rest: { scale: 1, boxShadow: '0 0 0px rgba(245,166,35,0)' },
+        hover: { scale: 1.025, boxShadow: '0 0 28px rgba(245,166,35,0.38)' },
+      }}
+      transition={spring}
+      style={{
+        position: 'relative',
+        overflow: 'hidden',
+        background: 'linear-gradient(135deg, rgba(55,22,0,0.95) 0%, rgba(35,13,0,0.98) 100%)',
+        border: '1px solid rgba(245,166,35,0.38)',
+        borderRadius: radius.lg,
+        padding: 16,
+        cursor: 'pointer',
+      }}
+    >
+      {/* Shimmer sweep on hover */}
+      <motion.div
+        variants={{
+          rest: { x: '-130%' },
+          hover: { x: '350%', transition: { duration: 0.5, ease: 'easeIn' } },
+        }}
+        style={{
+          position: 'absolute',
+          top: 0, bottom: 0, width: '45%',
+          background: 'linear-gradient(90deg, transparent, rgba(245,166,35,0.12), transparent)',
+          transform: 'skewX(-15deg)',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      />
+
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{
+            color: colors.amber, fontSize: 10, fontWeight: 700,
+            letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6,
+          }}>
+            Промокод — бонус +500%
+          </div>
+          <div style={{
+            color: '#ffd86a', fontWeight: 900, fontSize: 22,
+            letterSpacing: 3,
+            textShadow: '0 0 14px rgba(245,166,35,0.55)',
+          }}>
+            {promoCode}
+          </div>
+        </div>
+        <div style={{
+          width: 44, height: 44, borderRadius: radius.md,
+          background: 'rgba(245,166,35,0.14)',
+          border: '1px solid rgba(245,166,35,0.3)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <Copy size={18} color={colors.amber} />
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function StatItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ flex: 1, textAlign: 'center', padding: '0 4px' }}>
+      <div style={{ color: colors.textMuted, fontSize: 10, marginBottom: 3 }}>{label}</div>
+      <div style={{ color: colors.text, fontSize: 12, fontWeight: 600 }}>{value}</div>
+    </div>
   );
 }
