@@ -21,7 +21,6 @@ model User {
   withdrawalTotal     Decimal   @default(0) @db.Decimal(12, 2)
   lastBalanceAt       DateTime?
   onewinRegisteredAt  DateTime?
-  registeredViaReferral Boolean   @default(false)
   blockedAt           DateTime?
   createdAt           DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
