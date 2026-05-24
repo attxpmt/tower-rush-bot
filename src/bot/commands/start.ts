@@ -29,6 +29,15 @@ const SUBSCRIBE_TEXT =
 
 type SubStatus = 'subscribed' | 'not_subscribed' | 'check_failed';
 
+// Telegram принимает в кнопках только https://, http:// или tg:// URL.
+// @username и числовой ID (-100...) для кнопки не годятся — конвертируем.
+function toButtonUrl(raw: string): string {
+  const s = raw.trim();
+  if (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('tg://')) return s;
+  if (s.startsWith('@')) return `https://t.me/${s.slice(1)}`;
+  return 'https://t.me'; // fallback для числового ID — прямой ссылки нет
+}
+
 function extractChannelId(channelUrl: string): string | null {
   const s = channelUrl.trim();
   if (!s) return null;
@@ -124,7 +133,7 @@ export async function handleStart(ctx: Context) {
         entities: [{ type: 'custom_emoji' as any, offset: 0, length: 2, custom_emoji_id: '5258203794772085854' }],
       });
       const keyboard = Markup.inlineKeyboard([
-        [Markup.button.url('📢 Перейти в канал', channelUrl)],
+        [Markup.button.url('📢 Перейти в канал', toButtonUrl(channelUrl))],
         [Markup.button.callback('✅ Я подписался — проверить', 'check_sub')],
       ]);
       return ctx.reply(SUBSCRIBE_TEXT, { parse_mode: 'HTML', ...keyboard });
