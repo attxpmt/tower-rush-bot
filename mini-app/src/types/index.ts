@@ -17,6 +17,7 @@ export interface User {
   lastBalanceAt: string | null;
   onewinRegisteredAt: string | null;
   createdAt: string;
+  isChannelMember: boolean;
 }
 
 export interface Settings {

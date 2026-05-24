@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { getOrCreateUser, linkOnewinId } from '../../services/userService';
+import { getSettings } from '../../services/settingsService';
 import { asyncHandler } from '../asyncHandler';
 import { cfg } from '../../config';
 
@@ -12,9 +13,49 @@ const router = Router();
 const AVATAR_TTL_MS = 86_400_000; // 24 часа
 const avatarCache = new Map<number, { url: string | null; at: number }>();
 
+// Кеш членства в канале: 2 минуты — достаточно коротко чтобы кнопка "Я подписался" работала.
+const CHANNEL_MEMBER_TTL_MS = 2 * 60 * 1000;
+const channelMemberCache = new Map<number, { isMember: boolean; at: number }>();
+
+function extractChannelId(channelUrl: string): string | null {
+  const match = channelUrl.match(/t\.me\/([a-zA-Z0-9_]+)/);
+  if (match) return '@' + match[1];
+  if (channelUrl.startsWith('@') || channelUrl.startsWith('-')) return channelUrl;
+  return null;
+}
+
+async function checkChannelMember(telegramId: number, channelId: string, bustCache = false): Promise<boolean> {
+  if (!bustCache) {
+    const cached = channelMemberCache.get(telegramId);
+    if (cached && Date.now() - cached.at < CHANNEL_MEMBER_TTL_MS) return cached.isMember;
+  }
+  try {
+    const res = await fetch(
+      `https://api.telegram.org/bot${cfg.botToken}/getChatMember?chat_id=${encodeURIComponent(channelId)}&user_id=${telegramId}`
+    );
+    const data = await res.json() as any;
+    const isMember = data.ok && ['member', 'administrator', 'creator'].includes(data.result?.status);
+    channelMemberCache.set(telegramId, { isMember, at: Date.now() });
+    return isMember;
+  } catch {
+    // Если Telegram API недоступен — не блокируем пользователя (канал-гейт не должен ронять апп).
+    return true;
+  }
+}
+
 router.get('/me', asyncHandler(async (req: Request, res: Response) => {
-  const user = await getOrCreateUser(req.telegramId!);
-  return res.json(serializeUser(user));
+  const [user, settings] = await Promise.all([
+    getOrCreateUser(req.telegramId!),
+    getSettings(),
+  ]);
+
+  let isChannelMember = true;
+  if (settings.channelUrl) {
+    const channelId = extractChannelId(settings.channelUrl);
+    if (channelId) isChannelMember = await checkChannelMember(req.telegramId!, channelId);
+  }
+
+  return res.json({ ...serializeUser(user), isChannelMember });
 }));
 
 const verifySchema = z.object({
@@ -35,10 +76,20 @@ router.post('/verify', asyncHandler(async (req: Request, res: Response) => {
   }
 }));
 
-// Force-refresh user data (used by Profile refresh button)
+// Force-refresh user data — сбрасывает кеш канала, чтобы "Я подписался" работало мгновенно.
 router.post('/refresh-stats', asyncHandler(async (req: Request, res: Response) => {
-  const user = await getOrCreateUser(req.telegramId!);
-  return res.json(serializeUser(user));
+  const [user, settings] = await Promise.all([
+    getOrCreateUser(req.telegramId!),
+    getSettings(),
+  ]);
+
+  let isChannelMember = true;
+  if (settings.channelUrl) {
+    const channelId = extractChannelId(settings.channelUrl);
+    if (channelId) isChannelMember = await checkChannelMember(req.telegramId!, channelId, true);
+  }
+
+  return res.json({ ...serializeUser(user), isChannelMember });
 }));
 
 // Get Telegram profile photo URL

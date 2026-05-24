@@ -11,14 +11,17 @@ import ProfilePage from './pages/ProfilePage';
 import SignalsPage from './pages/SignalsPage';
 import TrainingPage from './pages/TrainingPage';
 import SettingsPage from './pages/SettingsPage';
-import { verifyOnewinId } from './api';
+import { verifyOnewinId, fetchSettings, refreshUserStats } from './api';
+import { Settings } from './types';
 import { colors, gradient, radius, glow } from './theme';
 
 export default function App() {
   const { telegramId } = useTelegram();
-  const { user, loading, setUser } = useUser(telegramId);
+  const { user, loading, setUser, refetch } = useUser(telegramId);
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [showOnboardPopup, setShowOnboardPopup] = useState(false);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [channelCheckLoading, setChannelCheckLoading] = useState(false);
 
   // 1win ID sheet
   const [showIdSheet, setShowIdSheet] = useState(false);
@@ -26,6 +29,10 @@ export default function App() {
   const [sheetLoading, setSheetLoading] = useState(false);
   const [sheetError, setSheetError] = useState('');
   const sheetShownRef = useRef(false);
+
+  useEffect(() => {
+    fetchSettings().then(setSettings).catch(() => {});
+  }, []);
 
   // Показываем sheet один раз если нет onewinId
   useEffect(() => {
@@ -36,6 +43,17 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [user]);
+
+  async function handleChannelCheck() {
+    setChannelCheckLoading(true);
+    try {
+      // refresh-stats сбрасывает кеш проверки канала на сервере
+      const updated = await refreshUserStats();
+      setUser(updated);
+    } finally {
+      setChannelCheckLoading(false);
+    }
+  }
 
   async function handleSheetVerify() {
     if (!sheetInput.trim() || sheetLoading) return;
@@ -65,6 +83,81 @@ export default function App() {
 
   if (loading || !user || !telegramId) {
     return <LoadingScreen />;
+  }
+
+  // Гейт подписки: если канал настроен и пользователь не подписан — блокируем вход
+  if (settings?.channelUrl && !user.isChannelMember) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: '#050b18',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        padding: '32px 24px', textAlign: 'center',
+      }}>
+        <div style={{
+          width: 80, height: 80, borderRadius: '50%',
+          background: 'rgba(245,166,35,0.1)',
+          border: '1.5px solid rgba(245,166,35,0.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 28,
+          boxShadow: '0 0 32px rgba(245,166,35,0.15)',
+        }}>
+          <span style={{ fontSize: 36 }}>📢</span>
+        </div>
+
+        <div style={{
+          color: colors.text, fontWeight: 800, fontSize: 22,
+          marginBottom: 12, lineHeight: 1.3,
+        }}>
+          Подпишись на канал
+        </div>
+
+        <div style={{
+          color: colors.textMuted, fontSize: 14,
+          lineHeight: 1.7, marginBottom: 32, maxWidth: 280,
+        }}>
+          Доступ к боту — только для подписчиков официального канала <b style={{ color: colors.text }}>Tower Rush</b>.<br />
+          Там выходит аналитика, сигналы и обновления алгоритма.
+        </div>
+
+        <a
+          href={settings.channelUrl}
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            display: 'block', width: '100%', maxWidth: 320,
+            padding: '16px', marginBottom: 12,
+            background: gradient.amber,
+            borderRadius: radius.lg,
+            color: '#000', fontWeight: 800, fontSize: 16,
+            textDecoration: 'none',
+            boxShadow: glow.amber,
+            textAlign: 'center',
+          }}
+        >
+          Перейти в канал
+        </a>
+
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={handleChannelCheck}
+          disabled={channelCheckLoading}
+          style={{
+            width: '100%', maxWidth: 320,
+            padding: '14px',
+            background: 'rgba(255,255,255,0.06)',
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.lg,
+            color: channelCheckLoading ? colors.textMuted : colors.text,
+            fontWeight: 700, fontSize: 15,
+            cursor: channelCheckLoading ? 'default' : 'pointer',
+            fontFamily: "'Exo 2', sans-serif",
+          }}
+        >
+          {channelCheckLoading ? 'Проверяем...' : 'Я подписался — проверить'}
+        </motion.button>
+      </div>
+    );
   }
 
   return (
