@@ -54,13 +54,39 @@ function periodLabel(p: StatsPeriod): string {
 
 // Редактируемые через админку поля настроек.
 // prompt — текст запроса ввода, label — заголовок в подтверждении.
-const SETTINGS_FIELDS: Record<string, { prompt: string; label: string }> = {
+// customPrompt — если задан, используется вместо шаблонного "Введи ...".
+const SETTINGS_FIELDS: Record<string, { prompt: string; label: string; customPrompt?: string }> = {
   referralUrl:    { prompt: 'реферальную ссылку', label: 'Реферальная ссылка' },
-  channelUrl:     { prompt: 'ссылку на Telegram-канал', label: 'Ссылка на канал' },
+  channelUrl: {
+    prompt: 'ссылку на Telegram-канал',
+    label: 'Ссылка на канал',
+    customPrompt:
+      `📢 <b>Канал обязательной подписки</b>\n\n` +
+      `Введи ссылку в одном из форматов:\n` +
+      `• <code>https://t.me/channel_name</code>\n` +
+      `• <code>@channel_name</code>\n\n` +
+      `⚠️ <b>Два обязательных условия:</b>\n` +
+      `1. Бот должен быть добавлен в канал как <b>администратор</b>\n` +
+      `2. Инвайт-ссылки (<code>t.me/+…</code>) <b>не работают</b> — нужен публичный username\n\n` +
+      `После ввода я автоматически проверю доступ.\n` +
+      `Чтобы <b>отключить</b> проверку — отправь <code>-</code>`,
+  },
   promoCode:      { prompt: 'промокод', label: 'Промокод' },
   botName:        { prompt: 'название бота', label: 'Название бота' },
   supportContact: { prompt: 'контакт поддержки (@username или ссылку)', label: 'Контакт поддержки' },
 };
+
+// Парсит channelUrl → @username или числовой ID пригодный для getChatMember.
+// Возвращает null если формат не поддерживается (инвайт-ссылки и т.п.).
+function parseChannelId(raw: string): string | null {
+  const s = raw.trim();
+  if (!s || s === '-') return null;
+  if (s.startsWith('@') || s.startsWith('-')) return s;
+  if (s.includes('/joinchat/') || s.includes('/+') || s.includes('t.me/+')) return null;
+  const match = s.match(/t\.me\/([a-zA-Z0-9_]{3,})/);
+  if (match) return '@' + match[1];
+  return null;
+}
 
 // Безопасная ячейка CSV: гасит формулы (=,+,-,@) и экранирует кавычки/запятые,
 // чтобы файл не ломался и не выполнял формулы в Excel.
@@ -284,7 +310,9 @@ export function registerAdminCallbacks(bot: Telegraf) {
       if (!isAdmin(ctx)) return ctx.answerCbQuery('Нет доступа');
       await ctx.answerCbQuery();
       s(ctx).awaitingField = field;
-      await ctx.reply(`${E.pen} Введи ${SETTINGS_FIELDS[field].prompt}:`, { parse_mode: 'HTML' });
+      const promptText = SETTINGS_FIELDS[field].customPrompt
+        ?? `${E.pen} Введи ${SETTINGS_FIELDS[field].prompt}:`;
+      await ctx.reply(promptText, { parse_mode: 'HTML' });
     });
   }
 
@@ -617,6 +645,83 @@ export function registerAdminCallbacks(bot: Telegraf) {
     const field = sess.awaitingField as string | null;
     if (!field) return next();
 
+    // channelUrl — валидация формата + live-проверка доступа бота
+    if (field === 'channelUrl') {
+      const input = text.trim();
+
+      // Сброс (отключение гейта)
+      if (input === '-') {
+        sess.awaitingField = null;
+        await updateSettings({ channelUrl: '' });
+        await ctx.reply(
+          `✅ <b>Проверка подписки отключена.</b>\nВсе пользователи имеют доступ без подписки на канал.`,
+          { parse_mode: 'HTML' }
+        );
+        return;
+      }
+
+      // Инвайт-ссылки — не поддерживаются
+      if (input.includes('/joinchat/') || input.includes('/+') || input.includes('t.me/+')) {
+        await ctx.reply(
+          `❌ <b>Инвайт-ссылки не поддерживаются</b>\n\n` +
+          `Ссылка вида <code>t.me/+…</code> не позволяет боту проверять подписку.\n\n` +
+          `Используй <b>публичный username</b> канала:\n` +
+          `• <code>https://t.me/channel_name</code>\n` +
+          `• <code>@channel_name</code>\n\n` +
+          `Введи правильную ссылку:`,
+          { parse_mode: 'HTML' }
+        );
+        return; // awaitingField остаётся — ждём новый ввод
+      }
+
+      // Нераспознанный формат
+      const channelId = parseChannelId(input);
+      if (!channelId) {
+        await ctx.reply(
+          `❌ <b>Не могу распознать формат ссылки</b>\n\n` +
+          `Введи в одном из форматов:\n` +
+          `• <code>https://t.me/channel_name</code>\n` +
+          `• <code>@channel_name</code>\n\n` +
+          `Введи правильную ссылку:`,
+          { parse_mode: 'HTML' }
+        );
+        return; // awaitingField остаётся
+      }
+
+      // Live-тест: пробуем вызвать getChatMember для самого администратора
+      await ctx.reply(`🔍 Проверяю доступ бота к каналу <code>${channelId}</code>…`, { parse_mode: 'HTML' });
+      try {
+        await (ctx as any).telegram.getChatMember(channelId, ctx.from!.id);
+        // Успех — бот имеет доступ к каналу
+        sess.awaitingField = null;
+        await updateSettings({ channelUrl: input });
+        await ctx.reply(
+          `✅ <b>Канал настроен и проверен!</b>\n\n` +
+          `📢 <code>${channelId}</code>\n\n` +
+          `Бот успешно проверил доступ. Теперь пользователи обязаны подписаться на канал перед входом в приложение.`,
+          { parse_mode: 'HTML' }
+        );
+      } catch {
+        // Бот не является администратором или канал не найден — сохраняем, но предупреждаем
+        sess.awaitingField = null;
+        await updateSettings({ channelUrl: input });
+        await ctx.reply(
+          `⚠️ <b>Канал сохранён, но есть проблема!</b>\n\n` +
+          `📢 <code>${channelId}</code>\n\n` +
+          `Бот <b>не может проверить подписку</b> — скорее всего он не добавлен как администратор канала.\n\n` +
+          `<b>Как исправить:</b>\n` +
+          `1. Открой настройки канала в Telegram\n` +
+          `2. Перейди в «Администраторы» → «Добавить администратора»\n` +
+          `3. Найди и добавь этого бота\n` +
+          `4. Права можно оставить минимальные\n\n` +
+          `Пока бот не является администратором, гейт подписки <b>не будет работать</b>.`,
+          { parse_mode: 'HTML' }
+        );
+      }
+      return;
+    }
+
+    // Стандартное поле — просто сохраняем
     sess.awaitingField = null;
     await updateSettings({ [field]: text });
     await ctx.reply(
