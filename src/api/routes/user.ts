@@ -52,7 +52,13 @@ router.get('/me', asyncHandler(async (req: Request, res: Response) => {
   let isChannelMember = true;
   if (settings.channelUrl) {
     const channelId = extractChannelId(settings.channelUrl);
-    if (channelId) isChannelMember = await checkChannelMember(req.telegramId!, channelId);
+    if (channelId) {
+      isChannelMember = await checkChannelMember(req.telegramId!, channelId);
+    } else {
+      // URL задан, но нераспознан — блокируем до исправления настроек
+      console.error(`[user/me] Cannot parse channelUrl: "${settings.channelUrl}"`);
+      isChannelMember = false;
+    }
   }
 
   return res.json({ ...serializeUser(user), isChannelMember });
@@ -86,7 +92,12 @@ router.post('/refresh-stats', asyncHandler(async (req: Request, res: Response) =
   let isChannelMember = true;
   if (settings.channelUrl) {
     const channelId = extractChannelId(settings.channelUrl);
-    if (channelId) isChannelMember = await checkChannelMember(req.telegramId!, channelId, true);
+    if (channelId) {
+      isChannelMember = await checkChannelMember(req.telegramId!, channelId, true);
+    } else {
+      console.error(`[refresh-stats] Cannot parse channelUrl: "${settings.channelUrl}"`);
+      isChannelMember = false;
+    }
   }
 
   return res.json({ ...serializeUser(user), isChannelMember });

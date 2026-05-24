@@ -30,9 +30,15 @@ const SUBSCRIBE_TEXT =
 type SubStatus = 'subscribed' | 'not_subscribed' | 'check_failed';
 
 function extractChannelId(channelUrl: string): string | null {
-  const match = channelUrl.match(/t\.me\/([a-zA-Z0-9_]+)/);
+  const s = channelUrl.trim();
+  if (!s) return null;
+  // @username или числовой ID напрямую
+  if (s.startsWith('@') || s.startsWith('-')) return s;
+  // https://t.me/username — только публичные каналы с username
+  // joinchat/ и /+ (инвайт-ссылки) — НЕ подходят для getChatMember
+  if (s.includes('/joinchat/') || s.includes('/+') || s.includes('t.me/+')) return null;
+  const match = s.match(/t\.me\/([a-zA-Z0-9_]{3,})/);
   if (match) return '@' + match[1];
-  if (channelUrl.startsWith('@') || channelUrl.startsWith('-')) return channelUrl;
   return null;
 }
 
@@ -86,6 +92,22 @@ export async function handleStart(ctx: Context) {
   const channelUrl = settings.channelUrl;
   const channelId = channelUrl ? extractChannelId(channelUrl) : null;
 
+  // channelUrl задан, но формат не распознан → блокируем и алертим
+  if (channelUrl && !channelId) {
+    console.error(`[subscription] Cannot parse channelUrl: "${channelUrl}"`);
+    await alertAdmins(
+      (ctx as any).telegram,
+      `⚠️ <b>Неверный формат ссылки на канал!</b>\n\n` +
+      `Текущее значение: <code>${channelUrl}</code>\n\n` +
+      `Допустимые форматы:\n` +
+      `• <code>https://t.me/channel_name</code>\n` +
+      `• <code>@channel_name</code>\n` +
+      `• <code>-100123456789</code> (ID закрытого канала)\n\n` +
+      `Смени ссылку в настройках бота — /admin → Данные → Канал`
+    );
+    return ctx.reply('⚠️ Временная ошибка доступа. Попробуй через минуту.');
+  }
+
   if (channelId) {
     const status = await checkSubscription((ctx as any).telegram, userId, channelId);
 
@@ -120,6 +142,14 @@ export function registerSubscriptionCallbacks(bot: Telegraf) {
     const settings = await getSettings();
     const channelUrl = settings.channelUrl;
     const channelId = channelUrl ? extractChannelId(channelUrl) : null;
+
+    if (channelUrl && !channelId) {
+      await alertAdmins(
+        bot.telegram,
+        `⚠️ <b>Неверный формат ссылки на канал!</b>\n\nТекущее значение: <code>${channelUrl}</code>\n\nИспользуй @username или числовой ID канала.`
+      );
+      return ctx.answerCbQuery('⚠️ Ошибка настройки. Свяжись с администратором.', { show_alert: true });
+    }
 
     if (!channelId) {
       await ctx.answerCbQuery('✅ Доступ открыт!');
