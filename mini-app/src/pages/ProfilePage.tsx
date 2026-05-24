@@ -347,7 +347,15 @@ export default function ProfilePage({ user, telegramId, onUserUpdate }: Props) {
         )}
 
         {/* ── 1win Banner ── */}
-        {settings?.referralUrl && (
+        {settings === null ? (
+          <div style={{
+            height: 72, borderRadius: radius.lg,
+            background: 'linear-gradient(90deg, rgba(245,166,35,0.08) 25%, rgba(245,166,35,0.18) 50%, rgba(245,166,35,0.08) 75%)',
+            backgroundSize: '200% 100%',
+            animation: 'shimmer 1.5s infinite',
+            border: '1px solid rgba(245,166,35,0.2)',
+          }} />
+        ) : settings?.referralUrl ? (
           <motion.div
             onClick={openReferral}
             initial="rest"
@@ -401,7 +409,7 @@ export default function ProfilePage({ user, telegramId, onUserUpdate }: Props) {
               </motion.div>
             </div>
           </motion.div>
-        )}
+        ) : null}
 
       </div>
     </motion.div>

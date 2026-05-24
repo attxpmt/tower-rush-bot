@@ -555,24 +555,21 @@ function PrepareOverlay({ strategy, riskAmount, onRiskAmountChange, onStrategyCh
         display: 'flex', flexDirection: 'column', gap: 12,
       }}>
         {[
-          { Icon: DollarSign, text: 'Введи сумму, которой готов рискнуть за сессию' },
-          { Icon: Layers,     text: 'Выбери стратегию игры' },
-          { Icon: Zap,        text: 'Нажми «Начать» — бот укажет сколько этажей строить' },
+          { Icon: DollarSign,  text: 'Введи сумму, которой готов рискнуть за сессию' },
+          { Icon: Layers,      text: 'Выбери стратегию игры' },
+          { Icon: Zap,         text: 'Нажми «Начать» — бот укажет сколько этажей строить' },
           { Icon: CheckSquare, text: 'Фиксируй результат после каждого раунда' },
         ].map(({ Icon, text }, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
-              width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+              width: 28, height: 28, borderRadius: 8, flexShrink: 0,
               background: 'rgba(245,166,35,0.1)',
               border: '1px solid rgba(245,166,35,0.2)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <span style={{ color: colors.amber, fontSize: 11, fontWeight: 800 }}>{i + 1}</span>
+              <Icon size={15} color={colors.amber} strokeWidth={2} />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, paddingTop: 4 }}>
-              <Icon size={13} color={colors.amber} strokeWidth={2} style={{ flexShrink: 0 }} />
-              <span style={{ color: colors.textMuted, fontSize: 12, lineHeight: 1.4 }}>{text}</span>
-            </div>
+            <span style={{ color: colors.textMuted, fontSize: 12, lineHeight: 1.4 }}>{text}</span>
           </div>
         ))}
       </div>

@@ -234,9 +234,17 @@ export default function DashboardPage({ user, telegramId, onTabChange, onShowOnb
         </div>
 
         {/* ── Promo Code ── */}
-        {settings?.promoCode && (
+        {settings === null ? (
+          <div style={{
+            height: 72, borderRadius: radius.lg,
+            background: 'linear-gradient(90deg, #0a1628 25%, #1a2d5a 50%, #0a1628 75%)',
+            backgroundSize: '200% 100%',
+            animation: 'shimmer 1.5s infinite',
+            border: `1px solid ${colors.border}`,
+          }} />
+        ) : settings.promoCode ? (
           <PromoBlock promoCode={settings.promoCode} onCopy={copyPromo} />
-        )}
+        ) : null}
 
       </div>
     </motion.div>

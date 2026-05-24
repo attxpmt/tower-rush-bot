@@ -65,8 +65,12 @@ export default function SettingsPage() {
     if (!settings?.supportContact) return;
     let url = settings.supportContact;
     if (url.startsWith('@')) url = `https://t.me/${url.slice(1)}`;
-    else if (!url.startsWith('http')) url = `https://${url}`;
-    WebApp.openTelegramLink(url);
+    else if (!url.startsWith('http')) url = `https://t.me/${url}`;
+    try {
+      WebApp.openTelegramLink(url);
+    } catch {
+      WebApp.openLink(url);
+    }
   }
 
   function openReferral() {
@@ -112,7 +116,7 @@ export default function SettingsPage() {
           <InfoRow
             icon={<Code2 size={15} color={colors.cyan} />}
             label={t.version}
-            value={settings?.botVersion ?? '2.71.0'}
+            value="2.71.0"
           />
           <InfoRow
             icon={<Server size={15} color={serverOk === null ? colors.textMuted : serverOk ? colors.success : colors.danger} />}
