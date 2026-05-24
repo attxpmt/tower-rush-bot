@@ -63,13 +63,19 @@ export default function SettingsPage() {
 
   function openSupport() {
     if (!settings?.supportContact) return;
-    let url = settings.supportContact;
+    let url = settings.supportContact.trim();
     if (url.startsWith('@')) url = `https://t.me/${url.slice(1)}`;
-    else if (!url.startsWith('http')) url = `https://t.me/${url}`;
+    else if (!/^https?:\/\//.test(url)) url = `https://t.me/${url}`;
+    // openTelegramLink открывает t.me ссылки внутри Telegram
+    // но на некоторых клиентах молча не работает — страхуемся window.open
     try {
-      WebApp.openTelegramLink(url);
+      if (url.startsWith('https://t.me/')) {
+        WebApp.openTelegramLink(url);
+      } else {
+        WebApp.openLink(url);
+      }
     } catch {
-      WebApp.openLink(url);
+      window.open(url, '_blank');
     }
   }
 

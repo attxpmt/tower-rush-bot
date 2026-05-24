@@ -78,7 +78,13 @@ router.post('/verify', asyncHandler(async (req: Request, res: Response) => {
     const user = await linkOnewinId(req.telegramId!, parsed.data.onewinId);
     return res.json(serializeUser(user));
   } catch (err: any) {
-    return res.status(409).json({ error: err.message });
+    // Бизнес-ошибка: ID уже занят другим аккаунтом
+    if (err.message === 'Этот 1win ID уже привязан к другому аккаунту') {
+      return res.status(409).json({ error: err.message });
+    }
+    // Любая другая ошибка (в т.ч. Prisma DB ошибки) → понятный текст
+    console.error('[verify] linkOnewinId error:', err.message);
+    return res.status(400).json({ error: 'ID неверный, убедитесь, что вы создали новый аккаунт' });
   }
 }));
 
