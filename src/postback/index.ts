@@ -14,9 +14,14 @@ const router = Router();
 //
 // Макросы 1win: {user_id} → ID аккаунта, {amount} → сумма депозита,
 //               {transaction_id}/{click_id} → уникальный ID (нужен для защиты от дублей)
+//
+// SECURITY: токен принимается двумя способами (в порядке приоритета):
+//   1. Заголовок X-Postback-Token — предпочтительно, не попадает в Nginx access log
+//   2. Query-параметр token — для обратной совместимости с 1win (их система шлёт GET)
+// Настройка Nginx: add_header X-Postback-Token $arg_token — можно передать через proxy_set_header.
 
 const postbackSchema = z.object({
-  token: z.string(),
+  token: z.string().optional(), // может прийти из заголовка X-Postback-Token
   user_id: z.string().min(1).optional(),
   uid: z.string().min(1).optional(),
   event: z.string().min(1),
@@ -24,14 +29,16 @@ const postbackSchema = z.object({
   txid: z.string().min(1).max(128).optional(),
 });
 
-router.get('/', asyncHandler(async (req: Request, res: Response) => {
+async function handlePostback(req: Request, res: Response) {
   const parsed = postbackSchema.safeParse(req.query);
   if (!parsed.success) {
     return res.status(400).send('Invalid parameters');
   }
   const q = parsed.data;
 
-  if (q.token !== cfg.postbackSecret) {
+  // Заголовок приоритетнее query-параметра — не попадает в access logs
+  const token = (req.headers['x-postback-token'] as string | undefined) ?? q.token;
+  if (!token || token !== cfg.postbackSecret) {
     return res.status(403).send('Forbidden');
   }
 
@@ -86,7 +93,12 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   }
 
   return res.status(200).send('OK');
-}));
+}
+
+// GET — обратная совместимость с 1win (их webhook шлёт GET с токеном в query)
+// POST — для будущей миграции или ручных вызовов с токеном в заголовке
+router.get('/', asyncHandler(handlePostback));
+router.post('/', asyncHandler(handlePostback));
 
 function normalizeEvent(event: string): 'registration' | 'deposit' | null {
   const e = event.toLowerCase();

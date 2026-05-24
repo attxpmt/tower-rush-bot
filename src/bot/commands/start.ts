@@ -27,6 +27,8 @@ const SUBSCRIBE_TEXT =
   `<blockquote>Там выходит свежая аналитика, статистика раундов и обновления алгоритма — всё что нужно для игры.</blockquote>\n\n` +
   `${E.lightning} Подпишись и нажми кнопку «Проверить» — сразу открою доступ.`;
 
+type SubStatus = 'subscribed' | 'not_subscribed' | 'check_failed';
+
 function extractChannelId(channelUrl: string): string | null {
   const match = channelUrl.match(/t\.me\/([a-zA-Z0-9_]+)/);
   if (match) return '@' + match[1];
@@ -34,15 +36,24 @@ function extractChannelId(channelUrl: string): string | null {
   return null;
 }
 
-async function checkSubscription(telegram: Telegraf['telegram'], userId: number, channelId: string): Promise<boolean> {
+async function checkSubscription(telegram: Telegraf['telegram'], userId: number, channelId: string): Promise<SubStatus> {
   try {
     const member = await telegram.getChatMember(channelId, userId);
-    return ['member', 'administrator', 'creator'].includes(member.status);
+    return ['member', 'administrator', 'creator'].includes(member.status)
+      ? 'subscribed'
+      : 'not_subscribed';
   } catch (err: any) {
-    // Fail-open: не блокируем реальных юзеров, если бот не админ канала
-    // или channelId указан неверно. Но логируем, чтобы видеть поломку гейта.
-    console.warn(`[subscription] check failed for channel "${channelId}":`, err?.message ?? err);
-    return true;
+    console.error(`[subscription] check failed for channel "${channelId}":`, err?.message ?? err);
+    return 'check_failed';
+  }
+}
+
+// Отправляет алерт всем администраторам бота
+async function alertAdmins(telegram: Telegraf['telegram'], text: string) {
+  for (const adminId of cfg.adminIds) {
+    try {
+      await telegram.sendMessage(adminId, text, { parse_mode: 'HTML' });
+    } catch (_) {}
   }
 }
 
@@ -76,8 +87,17 @@ export async function handleStart(ctx: Context) {
   const channelId = channelUrl ? extractChannelId(channelUrl) : null;
 
   if (channelId) {
-    const subscribed = await checkSubscription((ctx as any).telegram, userId, channelId);
-    if (!subscribed) {
+    const status = await checkSubscription((ctx as any).telegram, userId, channelId);
+
+    if (status === 'check_failed') {
+      await alertAdmins(
+        (ctx as any).telegram,
+        `⚠️ <b>Ошибка проверки подписки!</b>\n\nБот не может проверить членство в канале <code>${channelId}</code>.\nПроверь, что бот является <b>администратором</b> канала — иначе гейт не работает.`
+      );
+      return ctx.reply('⚠️ Не могу проверить подписку на канал. Попробуй через минуту.');
+    }
+
+    if (status === 'not_subscribed') {
       await ctx.reply('⚡️', {
         entities: [{ type: 'custom_emoji' as any, offset: 0, length: 2, custom_emoji_id: '5258203794772085854' }],
       });
@@ -106,8 +126,17 @@ export function registerSubscriptionCallbacks(bot: Telegraf) {
       return sendMainMessage(ctx, settings);
     }
 
-    const subscribed = await checkSubscription(bot.telegram, userId, channelId);
-    if (!subscribed) {
+    const status = await checkSubscription(bot.telegram, userId, channelId);
+
+    if (status === 'check_failed') {
+      await alertAdmins(
+        bot.telegram,
+        `⚠️ <b>Ошибка проверки подписки!</b>\n\nБот не может проверить членство в канале <code>${channelId}</code>.\nПроверь, что бот является <b>администратором</b> канала.`
+      );
+      return ctx.answerCbQuery('⚠️ Ошибка проверки. Попробуй через минуту.', { show_alert: true });
+    }
+
+    if (status === 'not_subscribed') {
       return ctx.answerCbQuery('❌ Подписка не найдена. Подпишись и попробуй снова.', { show_alert: true });
     }
 

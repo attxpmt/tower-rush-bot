@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { Strategy } from '@prisma/client';
 import { generateSignal, getUserSignalStats } from '../../services/signalService';
 import { asyncHandler } from '../asyncHandler';
+import { signalRateLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
@@ -12,7 +13,7 @@ const generateSchema = z.object({
   strategy: z.enum(['stable', 'moderate', 'aggressive']),
 });
 
-router.post('/', asyncHandler(async (req: Request, res: Response) => {
+router.post('/', signalRateLimiter, asyncHandler(async (req: Request, res: Response) => {
   const parsed = generateSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message });
