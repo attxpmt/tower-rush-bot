@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Lock, Search, BarChart2 } from 'lucide-react';
+import { Zap, Lock, Search, BarChart2, Layers, CheckSquare, DollarSign } from 'lucide-react';
 import WebApp from '@twa-dev/sdk';
 import { User, Signal, Strategy, Settings } from '../types';
 import { generateSignal, fetchSettings } from '../api';
@@ -360,8 +360,7 @@ function TopPanel({ wins, losses, rounds }: { wins: number; losses: number; roun
   return (
     <div style={{
       position: 'absolute', top: 0, left: 0, right: 0,
-      padding: '16px 16px 32px',
-      background: 'linear-gradient(to bottom, rgba(5,11,24,0.92) 50%, transparent)',
+      padding: '16px 16px 0',
       display: 'flex', gap: 8, justifyContent: 'center',
       zIndex: 10,
     }}>
@@ -375,14 +374,17 @@ function TopPanel({ wins, losses, rounds }: { wins: number; losses: number; roun
 function StatChip({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div style={{
-      padding: '7px 14px',
-      background: 'rgba(5,11,24,0.8)',
-      border: `1px solid rgba(255,255,255,0.1)`,
+      padding: '6px 12px 6px 10px',
+      background: 'rgba(10,22,40,0.85)',
       borderRadius: radius.full,
-      display: 'flex', alignItems: 'center', gap: 5,
-      backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', gap: 6,
+      backdropFilter: 'blur(8px)',
+      borderLeft: `2.5px solid ${color}`,
+      border: `1px solid rgba(255,255,255,0.08)`,
+      borderLeftColor: color,
+      boxShadow: `0 2px 12px rgba(0,0,0,0.4)`,
     }}>
-      <span style={{ color: colors.textMuted, fontSize: 11 }}>{label}:</span>
+      <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10 }}>{label}</span>
       <span style={{ color, fontWeight: 800, fontSize: 13 }}>{value}</span>
     </div>
   );
@@ -510,14 +512,16 @@ function PrepareOverlay({ strategy, riskAmount, onRiskAmountChange, onStrategyCh
             }}
           />
         </motion.div>
-        <div style={{ color: showError ? colors.danger : colors.textMuted, fontSize: 11, marginTop: 4, transition: 'color 0.2s' }}>
-          {showError ? 'Укажи сумму перед началом игры' : 'Сумма, которую тебе не жалко потерять за сессию'}
-        </div>
+        {showError && (
+          <div style={{ color: colors.danger, fontSize: 11, marginTop: 4 }}>
+            Укажи сумму перед началом игры
+          </div>
+        )}
       </div>
 
       {/* Strategy */}
       <div>
-        <div style={{ color: colors.amber, fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Стиль игры</div>
+        <div style={{ color: colors.amber, fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Стратегия</div>
         <div style={{ display: 'flex', gap: 8 }}>
           {STRATEGIES.map((s) => (
             <motion.button
@@ -544,27 +548,48 @@ function PrepareOverlay({ strategy, riskAmount, onRiskAmountChange, onStrategyCh
 
       {/* Brief rules */}
       <div style={{
-        padding: '12px 14px',
-        background: 'rgba(255,255,255,0.03)',
-        border: `1px solid ${colors.border}`,
+        padding: '14px 16px',
+        background: 'rgba(245,166,35,0.04)',
+        border: '1px solid rgba(245,166,35,0.2)',
         borderRadius: radius.md,
-        display: 'flex', flexDirection: 'column', gap: 7,
+        display: 'flex', flexDirection: 'column', gap: 12,
       }}>
         {[
-          '⚡ Нажми "Получить сигнал" — бот укажет сколько этажей строить',
-          '🏗 Чем выше башня — тем больше коэффициент и риск',
-          '🛑 Фиксируй результат после каждого раунда',
-        ].map((rule, i) => (
-          <div key={i} style={{ color: colors.textMuted, fontSize: 12, lineHeight: 1.5 }}>{rule}</div>
+          { Icon: DollarSign, text: 'Введи сумму, которой готов рискнуть за сессию' },
+          { Icon: Layers,     text: 'Выбери стратегию игры' },
+          { Icon: Zap,        text: 'Нажми «Начать» — бот укажет сколько этажей строить' },
+          { Icon: CheckSquare, text: 'Фиксируй результат после каждого раунда' },
+        ].map(({ Icon, text }, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <div style={{
+              width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+              background: 'rgba(245,166,35,0.1)',
+              border: '1px solid rgba(245,166,35,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <span style={{ color: colors.amber, fontSize: 11, fontWeight: 800 }}>{i + 1}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, paddingTop: 4 }}>
+              <Icon size={13} color={colors.amber} strokeWidth={2} style={{ flexShrink: 0 }} />
+              <span style={{ color: colors.textMuted, fontSize: 12, lineHeight: 1.4 }}>{text}</span>
+            </div>
+          </div>
         ))}
       </div>
 
       <div style={{ flex: 1 }} />
 
       <motion.button
+        initial="rest"
+        whileHover={riskValid ? 'hover' : 'rest'}
         whileTap={{ scale: 0.97 }}
+        variants={{
+          rest: { scale: 1, boxShadow: glow.amber },
+          hover: { scale: 1.02, boxShadow: glow.amberStrong },
+        }}
         onClick={handleStart}
         style={{
+          position: 'relative', overflow: 'hidden',
           width: '100%', padding: '16px',
           background: riskValid ? gradient.amber : 'rgba(255,255,255,0.08)',
           border: riskValid ? 'none' : `1px solid ${colors.border}`,
@@ -574,10 +599,22 @@ function PrepareOverlay({ strategy, riskAmount, onRiskAmountChange, onStrategyCh
           cursor: riskValid ? 'pointer' : 'default',
           fontFamily: "'Exo 2', sans-serif",
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          boxShadow: riskValid ? glow.amber : 'none',
-          transition: 'all 0.2s',
+          transition: 'background 0.2s, color 0.2s',
         }}
       >
+        {riskValid && (
+          <motion.div
+            variants={{
+              rest: { x: '-130%' },
+              hover: { x: '350%', transition: { duration: 0.45, ease: 'easeIn' } },
+            }}
+            style={{
+              position: 'absolute', top: 0, bottom: 0, width: '45%',
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)',
+              transform: 'skewX(-15deg)', pointerEvents: 'none',
+            }}
+          />
+        )}
         <Zap size={18} fill={riskValid ? '#000' : colors.textMuted} /> Начать играть
       </motion.button>
     </motion.div>
@@ -645,6 +682,8 @@ function AnalyzingOverlay({ progress }: { progress: number[] }) {
 
 // ─── Result Card ──────────────────────────────────────────────────────────────
 
+const resultSpring = { type: 'spring', stiffness: 340, damping: 28 } as const;
+
 function ResultCard({ signal, confidence, calculatedBet, onWin, onLoss }: {
   signal: Signal;
   confidence: number;
@@ -658,8 +697,9 @@ function ResultCard({ signal, confidence, calculatedBet, onWin, onLoss }: {
   const profit = bet * (coef - 1);
   const riskColor = { low: colors.success, medium: colors.amber, high: colors.danger }[signal.riskLevel];
   const riskLabel = { low: 'Низкий', medium: 'Средний', high: 'Высокий' }[signal.riskLevel];
-  const confLabel = confidence >= 85 ? '🔥 Высокий' : confidence >= 75 ? '⚡ Средний' : '⚠️ Умеренный';
   const confColor = confidence >= 85 ? colors.success : confidence >= 75 ? colors.amber : colors.danger;
+  const SEGMENTS = 10;
+  const filledSegments = Math.round((confidence / 100) * SEGMENTS);
 
   return (
     <motion.div
@@ -670,7 +710,7 @@ function ResultCard({ signal, confidence, calculatedBet, onWin, onLoss }: {
       style={{
         position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 20,
         background: 'linear-gradient(to top, #050b18 0%, #0a1628 100%)',
-        border: `1px solid rgba(245,166,35,0.25)`,
+        borderTop: `1px solid rgba(245,166,35,0.25)`,
         borderRadius: '20px 20px 0 0',
         padding: '14px 16px 24px',
         boxShadow: '0 -12px 50px rgba(0,0,0,0.8)',
@@ -685,22 +725,27 @@ function ResultCard({ signal, confidence, calculatedBet, onWin, onLoss }: {
           Сигнал готов
         </div>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 8 }}>
-          <span style={{
-            color: colors.amber, fontSize: 80, fontWeight: 900, lineHeight: 1,
-            textShadow: `0 0 30px rgba(245,166,35,0.75), 0 0 70px rgba(245,166,35,0.35)`,
-          }}>
+          <motion.span
+            animate={{ textShadow: [
+              '0 0 20px rgba(245,166,35,0.5)',
+              '0 0 60px rgba(245,166,35,0.95)',
+              '0 0 20px rgba(245,166,35,0.5)',
+            ]}}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            style={{ color: colors.amber, fontSize: 80, fontWeight: 900, lineHeight: 1 }}
+          >
             {floors}
-          </span>
+          </motion.span>
           <span style={{ color: colors.textMuted, fontSize: 22, fontWeight: 600 }}>этажей</span>
         </div>
       </div>
 
       {/* Info grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-        <InfoChip label="Коэффициент" value={`×${coef.toFixed(1)}`} valueColor={colors.amber} />
+        <InfoChip label="Примерный множитель" value={`×${coef.toFixed(1)}`} valueColor={colors.amber} />
         <InfoChip label="Риск" value={riskLabel} valueColor={riskColor} />
-        <InfoChip label="Рек. ставка" value={`${bet.toFixed(0)} ₽`} valueColor={colors.text} />
-        <InfoChip label="Ожид. прибыль" value={`+${profit.toFixed(0)} ₽`} valueColor={colors.success} />
+        <InfoChip label="Ставка" value={`${bet.toFixed(0)} ₽`} valueColor={colors.text} />
+        <InfoChip label="Примерная прибыль" value={`+${profit.toFixed(0)} ₽`} valueColor={colors.success} />
       </div>
 
       {/* Confidence block */}
@@ -712,30 +757,99 @@ function ResultCard({ signal, confidence, calculatedBet, onWin, onLoss }: {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <span style={{ color: colors.text, fontSize: 14, fontWeight: 800 }}>Уверенность алгоритма</span>
-          <span style={{ color: colors.amber, fontWeight: 900, fontSize: 20 }}>{confidence}%</span>
+          <span style={{ color: confColor, fontWeight: 900, fontSize: 20 }}>{confidence}%</span>
         </div>
-        <div style={{ height: 9, background: 'rgba(255,255,255,0.08)', borderRadius: 5, overflow: 'hidden', marginBottom: 6 }}>
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${confidence}%` }}
-            transition={{ duration: 1.1, ease: 'easeOut' }}
-            style={{
-              height: '100%', background: gradient.amber, borderRadius: 5,
-              boxShadow: `0 0 10px rgba(245,166,35,0.5)`,
-            }}
-          />
+        {/* Segmented bar */}
+        <div style={{ display: 'flex', gap: 3, marginBottom: 6 }}>
+          {Array.from({ length: SEGMENTS }).map((_, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, scaleY: 0.4 }}
+              animate={{ opacity: 1, scaleY: 1 }}
+              transition={{ delay: 0.06 * i, duration: 0.3, ease: 'easeOut' }}
+              style={{
+                flex: 1, height: 10, borderRadius: 3,
+                background: i < filledSegments
+                  ? (i >= 8 ? colors.success : i >= 5 ? colors.amber : colors.amberDim)
+                  : 'rgba(255,255,255,0.07)',
+                boxShadow: i === filledSegments - 1
+                  ? `0 0 8px ${confColor}`
+                  : 'none',
+              }}
+            />
+          ))}
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <span style={{ fontSize: 12, color: confColor, fontWeight: 700 }}>{confLabel}</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ color: colors.textDim, fontSize: 10 }}>Низкая</span>
+          <span style={{ color: colors.textDim, fontSize: 10 }}>Средняя</span>
+          <span style={{ color: colors.textDim, fontSize: 10 }}>Высокая</span>
         </div>
       </div>
 
       {/* Record result */}
       <div style={{ display: 'flex', gap: 8 }}>
-        <motion.button whileTap={{ scale: 0.97 }} onClick={onWin} style={resultBtn('rgba(0,230,118,0.12)', 'rgba(0,230,118,0.4)', colors.success)}>
+        <motion.button
+          initial="rest"
+          whileHover="hover"
+          whileTap={{ scale: 0.97 }}
+          variants={{
+            rest: { scale: 1, boxShadow: '0 0 0px rgba(0,230,118,0)' },
+            hover: { scale: 1.02, boxShadow: `0 0 20px rgba(0,230,118,0.35)` },
+          }}
+          transition={resultSpring}
+          onClick={onWin}
+          style={{
+            position: 'relative', overflow: 'hidden',
+            flex: 1, padding: '14px',
+            background: 'rgba(0,230,118,0.12)', border: `1px solid rgba(0,230,118,0.4)`,
+            borderRadius: radius.md, color: colors.success,
+            fontWeight: 700, fontSize: 15,
+            cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
+          }}
+        >
+          <motion.div
+            variants={{
+              rest: { x: '-130%' },
+              hover: { x: '350%', transition: { duration: 0.45, ease: 'easeIn' } },
+            }}
+            style={{
+              position: 'absolute', top: 0, bottom: 0, width: '45%',
+              background: 'linear-gradient(90deg, transparent, rgba(0,230,118,0.2), transparent)',
+              transform: 'skewX(-15deg)', pointerEvents: 'none',
+            }}
+          />
           ✓ Победа
         </motion.button>
-        <motion.button whileTap={{ scale: 0.97 }} onClick={onLoss} style={resultBtn('rgba(255,68,68,0.1)', 'rgba(255,68,68,0.35)', colors.danger)}>
+        <motion.button
+          initial="rest"
+          whileHover="hover"
+          whileTap={{ scale: 0.97 }}
+          variants={{
+            rest: { scale: 1, boxShadow: '0 0 0px rgba(255,68,68,0)' },
+            hover: { scale: 1.02, boxShadow: `0 0 20px rgba(255,68,68,0.35)` },
+          }}
+          transition={resultSpring}
+          onClick={onLoss}
+          style={{
+            position: 'relative', overflow: 'hidden',
+            flex: 1, padding: '14px',
+            background: 'rgba(255,68,68,0.1)', border: `1px solid rgba(255,68,68,0.35)`,
+            borderRadius: radius.md, color: colors.danger,
+            fontWeight: 700, fontSize: 15,
+            cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
+          }}
+        >
+          <motion.div
+            variants={{
+              rest: { x: '-130%' },
+              hover: { x: '350%', transition: { duration: 0.45, ease: 'easeIn' } },
+            }}
+            style={{
+              position: 'absolute', top: 0, bottom: 0, width: '45%',
+              background: 'linear-gradient(90deg, transparent, rgba(255,68,68,0.18), transparent)',
+              transform: 'skewX(-15deg)', pointerEvents: 'none',
+            }}
+          />
           ✕ Поражение
         </motion.button>
       </div>
@@ -753,14 +867,4 @@ function InfoChip({ label, value, valueColor }: { label: string; value: string; 
       <div style={{ color: valueColor, fontWeight: 800, fontSize: 15 }}>{value}</div>
     </div>
   );
-}
-
-function resultBtn(bg: string, border: string, color: string): React.CSSProperties {
-  return {
-    flex: 1, padding: '14px',
-    background: bg, border: `1px solid ${border}`,
-    borderRadius: radius.md, color,
-    fontWeight: 700, fontSize: 15,
-    cursor: 'pointer', fontFamily: "'Exo 2', sans-serif",
-  };
 }

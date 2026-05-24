@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+
+const spring = { type: 'spring', stiffness: 340, damping: 28 } as const;
 import {
   Hash, Gamepad2, Wallet, TrendingUp, DollarSign,
   Zap, Shield, Calendar, RefreshCw, User as UserIcon,
@@ -30,6 +32,7 @@ export default function ProfilePage({ user, telegramId, onUserUpdate }: Props) {
   const [refreshCooldown, setRefreshCooldown] = useState(false);
   const [rotation, setRotation] = useState(0);
   const { showToast } = useToast();
+  const onewinFormRef = useRef<HTMLDivElement>(null);
 
   const tgUser = WebApp.initDataUnsafe?.user;
   const displayName = tgUser
@@ -40,6 +43,12 @@ export default function ProfilePage({ user, telegramId, onUserUpdate }: Props) {
     getUserAvatar().then(setAvatarUrl).catch(() => {});
     fetchSettings().then(setSettings).catch(() => {});
   }, [telegramId]);
+
+  useEffect(() => {
+    if (editingOnewin && onewinFormRef.current) {
+      setTimeout(() => onewinFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+    }
+  }, [editingOnewin]);
 
   function formatDate(str: string) {
     return new Date(str).toLocaleDateString('ru-RU', {
@@ -270,17 +279,22 @@ export default function ProfilePage({ user, telegramId, onUserUpdate }: Props) {
 
         {/* ── 1win ID Form ── */}
         {showOnewinForm && (
-          <GlowCard variant="default">
+          <div ref={onewinFormRef}><GlowCard variant="default">
             <div style={{ color: colors.text, fontWeight: 700, fontSize: 14, marginBottom: 6 }}>
               {user.onewinId ? 'Изменить 1win ID' : 'Привязать 1win ID'}
             </div>
             <div style={{ color: colors.textMuted, fontSize: 12, marginBottom: 12 }}>
-              Найди ID в личном кабинете 1win → Профиль
+              Скопируй свой ID в профиле на 1win
             </div>
             <input
               value={onewinInput}
-              onChange={(e) => setOnewinInput(e.target.value)}
-              placeholder="Введи 1win ID"
+              inputMode="numeric"
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, '');
+                setOnewinInput(val);
+                setVerifyError('');
+              }}
+              placeholder="Введи 1win ID (только цифры)"
               style={{
                 width: '100%',
                 padding: '12px 14px',
@@ -329,36 +343,64 @@ export default function ProfilePage({ user, telegramId, onUserUpdate }: Props) {
                 </motion.button>
               )}
             </div>
-          </GlowCard>
+          </GlowCard></div>
         )}
 
         {/* ── 1win Banner ── */}
         {settings?.referralUrl && (
-          <GlowCard variant="amber" onClick={openReferral}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <motion.div
+            onClick={openReferral}
+            initial="rest"
+            whileHover="hover"
+            whileTap={{ scale: 0.97 }}
+            variants={{
+              rest: { scale: 1, boxShadow: '0 4px 28px rgba(245,166,35,0.28)' },
+              hover: { scale: 1.02, boxShadow: '0 8px 48px rgba(245,166,35,0.58)' },
+            }}
+            transition={spring}
+            style={{
+              position: 'relative', overflow: 'hidden',
+              borderRadius: radius.lg, padding: '18px 20px',
+              cursor: 'pointer',
+              background: 'linear-gradient(135deg, #f5a623 0%, #ffd055 45%, #e8920a 100%)',
+              border: '1px solid rgba(255,210,80,0.5)',
+            }}
+          >
+            <motion.div
+              variants={{
+                rest: { x: '-130%' },
+                hover: { x: '300%', transition: { duration: 0.55, ease: 'easeIn' } },
+              }}
+              style={{
+                position: 'absolute', top: 0, bottom: 0, width: '50%',
+                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
+                transform: 'skewX(-18deg)', pointerEvents: 'none', zIndex: 0,
+              }}
+            />
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
               <div>
-                <div style={{ color: colors.text, fontWeight: 700, fontSize: 15 }}>
-                  Играй на 1win
+                <div style={{ color: '#000', fontWeight: 900, fontSize: 19, letterSpacing: -0.3, lineHeight: 1.15 }}>
+                  ИГРАТЬ НА 1WIN
                 </div>
-                <div style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
-                  Переходи по нашей ссылке
+                <div style={{ color: 'rgba(0,0,0,0.58)', fontSize: 12, marginTop: 4 }}>
+                  Перейти на официальный сайт
                 </div>
               </div>
-              <div style={{
-                background: gradient.amber,
-                color: '#000',
-                fontWeight: 800, fontSize: 13,
-                padding: '9px 16px',
-                borderRadius: radius.full,
-                display: 'flex', alignItems: 'center', gap: 6,
-                boxShadow: glow.amber,
-                flexShrink: 0,
-              }}>
-                <ExternalLink size={14} />
+              <motion.div
+                variants={{ rest: { scale: 1 }, hover: { scale: 1.08 } }}
+                transition={spring}
+                style={{
+                  background: 'rgba(0,0,0,0.18)', borderRadius: radius.md,
+                  padding: '9px 15px', display: 'flex', alignItems: 'center', gap: 6,
+                  color: '#000', fontWeight: 800, fontSize: 14, flexShrink: 0,
+                  border: '1px solid rgba(0,0,0,0.1)',
+                }}
+              >
+                <ExternalLink size={15} strokeWidth={2.5} />
                 Перейти
-              </div>
+              </motion.div>
             </div>
-          </GlowCard>
+          </motion.div>
         )}
 
       </div>

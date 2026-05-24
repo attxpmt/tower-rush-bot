@@ -8,6 +8,8 @@ import { useToast } from '../components/Toast';
 import GlowCard from '../components/GlowCard';
 import { colors, glow, gradient, radius } from '../theme';
 
+const spring = { type: 'spring', stiffness: 340, damping: 28 } as const;
+
 const STEPS = [
   {
     num: 1,
@@ -150,30 +152,62 @@ export default function TrainingPage() {
       <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* ── Promo Code ── */}
-        {settings?.promoCode && (
-          <GlowCard variant="default" onClick={copyPromo} glowOnHover>
-            <div style={{ color: colors.textMuted, fontSize: 12, marginBottom: 4 }}>
-              Используй промокод при регистрации
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{
-                color: colors.amber, fontWeight: 800, fontSize: 22,
-                letterSpacing: 2, textShadow: `0 0 10px rgba(245,166,35,0.4)`,
-              }}>
-                {settings.promoCode}
+        {settings === null ? (
+          <div style={{
+            height: 72, borderRadius: radius.lg,
+            background: 'linear-gradient(90deg, #0a1628 25%, #1a2d5a 50%, #0a1628 75%)',
+            backgroundSize: '200% 100%',
+            animation: 'shimmer 1.5s infinite',
+            border: `1px solid ${colors.border}`,
+          }} />
+        ) : settings.promoCode ? (
+          <motion.div
+            onClick={copyPromo}
+            initial="rest"
+            whileHover="hover"
+            whileTap={{ scale: 0.97 }}
+            variants={{
+              rest: { scale: 1, boxShadow: '0 0 0px rgba(245,166,35,0)' },
+              hover: { scale: 1.025, boxShadow: '0 0 28px rgba(245,166,35,0.38)' },
+            }}
+            transition={spring}
+            style={{
+              position: 'relative', overflow: 'hidden',
+              background: 'linear-gradient(135deg, rgba(55,22,0,0.95) 0%, rgba(35,13,0,0.98) 100%)',
+              border: '1px solid rgba(245,166,35,0.38)',
+              borderRadius: radius.lg, padding: 16, cursor: 'pointer',
+            }}
+          >
+            <motion.div
+              variants={{
+                rest: { x: '-130%' },
+                hover: { x: '350%', transition: { duration: 0.5, ease: 'easeIn' } },
+              }}
+              style={{
+                position: 'absolute', top: 0, bottom: 0, width: '45%',
+                background: 'linear-gradient(90deg, transparent, rgba(245,166,35,0.12), transparent)',
+                transform: 'skewX(-15deg)', pointerEvents: 'none', zIndex: 0,
+              }}
+            />
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ color: colors.amber, fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
+                  Промокод — бонус +500%
+                </div>
+                <div style={{ color: '#ffd86a', fontWeight: 900, fontSize: 22, letterSpacing: 3, textShadow: '0 0 14px rgba(245,166,35,0.55)' }}>
+                  {settings.promoCode}
+                </div>
               </div>
               <div style={{
-                width: 38, height: 38, borderRadius: radius.md,
-                background: 'rgba(245,166,35,0.1)',
-                border: `1px solid rgba(245,166,35,0.25)`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0,
+                width: 44, height: 44, borderRadius: radius.md,
+                background: 'rgba(245,166,35,0.14)', border: '1px solid rgba(245,166,35,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}>
-                <Copy size={16} color={colors.amber} />
+                <Copy size={18} color={colors.amber} />
               </div>
             </div>
-          </GlowCard>
-        )}
+          </motion.div>
+        ) : null}
 
         {/* ── Steps ── */}
         <div>
